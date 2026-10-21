@@ -68,7 +68,7 @@ final class ResourcesTest extends TestCase {
 	public function test_invalid_kind_or_identifier_is_refused() {
 		$license = $this->license();
 
-		foreach ( array( array( 'site', 'x' ), array( '', 'x' ), array( 'vm', '' ), array( 'vm', 'a b' ), array( 'vm', str_repeat( 'a', 181 ) ) ) as $case ) {
+		foreach ( array( array( 'site', 'x' ), array( '', 'x' ), array( 'vm', '' ), array( 'vm', 'a b' ), array( 'SITE', 'x' ), array( 'Site', 'x' ), array( 'v m', 'x' ), array( 'VM', 'x' ), array( str_repeat( 'k', 21 ), 'x' ), array( 'vm', str_repeat( 'a', 181 ) ) ) as $case ) {
 			$result = Licenses::add_resource( $license, $case[0], $case[1] );
 			$this->assertFalse( $result['success'] );
 			$this->assertSame( 'invalid', $result['code'] );
@@ -159,5 +159,20 @@ final class ResourcesTest extends TestCase {
 		$this->assertSame( array( 'vm-1', 'acc-1' ), wp_list_pluck( $all, 'domain' ) );
 		$this->assertSame( array(), $all[0]['meta'] );
 		$this->assertSame( array( 'vm-1' ), wp_list_pluck( Licenses::resources( $id, 'vm' ), 'domain' ) );
+	}
+
+	public function test_sites_and_resources_with_the_same_text_never_close_each_other() {
+		$license = $this->license();
+		$site    = Licenses::activate( $license, 'vm-12' );
+		$added   = Licenses::add_resource( $license, 'vm', 'vm-12' );
+
+		$this->assertTrue( Licenses::deactivate( $license, 'vm-12' )['success'] );
+		$this->assertSame( 'vm-12', Licenses::activation( $added['activation_id'] )['live_domain'] );
+		$this->assertCount( 1, Licenses::resources( (int) $license['id'] ) );
+
+		Licenses::activate( $license, 'vm-12' );
+		$this->assertTrue( Licenses::close_resource( $license, 'vm', 'vm-12' ) );
+		$this->assertTrue( Licenses::is_live_on( (int) $license['id'], 'vm-12' ) );
+		$this->assertSame( 'activated', $site['code'] );
 	}
 }

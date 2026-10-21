@@ -611,7 +611,7 @@ final class Licenses {
 	 * @param string $identifier Identifier.
 	 */
 	private static function valid_resource( string $kind, string $identifier ): bool {
-		return '' !== $kind && 'site' !== $kind && strlen( $kind ) <= 20 && 1 === preg_match( '/^[A-Za-z0-9._:-]{1,180}$/', $identifier );
+		return 'site' !== $kind && 1 === preg_match( '/^[a-z0-9_-]{1,20}$/', $kind ) && 1 === preg_match( '/^[A-Za-z0-9._:-]{1,180}$/', $identifier );
 	}
 
 	/**
