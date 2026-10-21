@@ -47,6 +47,33 @@ final class Software {
 	}
 
 	/**
+	 * Every software slug set on a product, with the product's name, sorted by slug.
+	 *
+	 * @return array<string, string> slug => product name
+	 */
+	public static function all(): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- admin screen only, one small query.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT m.meta_value AS slug, p.post_title AS name FROM {$wpdb->postmeta} m INNER JOIN {$wpdb->posts} p ON p.ID = m.post_id
+				WHERE m.meta_key = %s AND m.meta_value <> '' AND p.post_type = 'product' AND p.post_status IN ('publish','private','draft')",
+				self::META_SLUG
+			),
+			ARRAY_A
+		);
+
+		$all = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$all[ (string) $row['slug'] ] = (string) $row['name'];
+		}
+		ksort( $all );
+
+		return $all;
+	}
+
+	/**
 	 * The product selling this software, if any.
 	 *
 	 * @param string $slug Software slug.
@@ -153,10 +180,11 @@ final class Software {
 	 * @param string $slug      Software slug.
 	 * @param string $version   Version.
 	 * @param string $file      Path relative to the storage directory.
-	 * @param string $changelog Changelog.
-	 * @param string $source    upload or github.
+	 * @param string $changelog    Changelog.
+	 * @param string $source       upload or github.
+	 * @param bool   $make_current Whether this becomes the version the API serves.
 	 */
-	public static function add_release( string $slug, string $version, string $file, string $changelog = '', string $source = 'upload' ): bool {
+	public static function add_release( string $slug, string $version, string $file, string $changelog = '', string $source = 'upload', bool $make_current = true ): bool {
 		global $wpdb;
 
 		$path = self::path( $file );
@@ -177,14 +205,80 @@ final class Software {
 		);
 
 		if ( $ok ) {
-			$product_id = self::product_id( $slug );
-			if ( $product_id ) {
-				update_post_meta( $product_id, self::META_VERSION, $version );
+			if ( $make_current ) {
+				self::set_current( $slug, $version );
 			}
-			do_action( 'beltoft_licenses_release_published', $slug, $version );
+			do_action( 'beltoft_licenses_release_published', $slug, $version, $make_current );
 		}
 
 		return $ok;
+	}
+
+	/**
+	 * Makes a stored release the version the API serves (also used to roll back).
+	 *
+	 * @param string $slug    Software slug.
+	 * @param string $version Version.
+	 */
+	public static function set_current( string $slug, string $version ): bool {
+		$product_id = self::product_id( $slug );
+
+		if ( ! $product_id || ! self::release( $slug, $version ) ) {
+			return false;
+		}
+
+		update_post_meta( $product_id, self::META_VERSION, $version );
+
+		return true;
+	}
+
+	/**
+	 * Every release of a piece of software, newest first.
+	 *
+	 * @param string $slug Software slug.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function releases( string $slug ): array {
+		global $wpdb;
+
+		$table = Install::tables()['releases'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, admin screen.
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE product_slug = %s ORDER BY published_at DESC, id DESC', $table, $slug ), ARRAY_A );
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Deletes a release and its file. When it was the current version, the newest remaining
+	 * release becomes current.
+	 *
+	 * @param string $slug    Software slug.
+	 * @param string $version Version.
+	 */
+	public static function delete_release( string $slug, string $version ): bool {
+		global $wpdb;
+
+		$release = self::release( $slug, $version );
+
+		if ( ! $release ) {
+			return false;
+		}
+
+		$path = self::path( (string) $release['file'] );
+		if ( is_file( $path ) ) {
+			wp_delete_file( $path );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
+		$wpdb->delete( Install::tables()['releases'], array( 'id' => (int) $release['id'] ) );
+
+		$product_id = self::product_id( $slug );
+		if ( $product_id && get_post_meta( $product_id, self::META_VERSION, true ) === $version ) {
+			$latest = self::latest_release( $slug );
+			update_post_meta( $product_id, self::META_VERSION, $latest ? (string) $latest['version'] : '' );
+		}
+
+		return true;
 	}
 
 	/**

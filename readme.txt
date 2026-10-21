@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,13 +20,15 @@ Beltoft Licenses turns WooCommerce products into licensed software.
 * Works with WooCommerce Subscriptions without taking over any of its work: billing, renewals, retries, switching and its emails stay with Subscriptions. Licenses follow the subscription: active while it is, a grace period while it is on hold (3 days by default), to the end of the paid period when cancelled, and the new site limit after a switch.
 * A daily job marks licenses past their expiry as expired.
 * A license API for your plugins and themes: validate, activate, deactivate and download, with short-lived signed download links.
+* Products → Releases: upload a version with its changelog, choose which version is current (to roll back), delete old ones. A zip must contain one folder named after the software.
+* GitHub releases: a published release of a listed repository becomes a release, from its attached zip or its source zip (repackaged to the right folder name). Private repositories work with an access token.
 * Release files served from a protected folder, by PHP or by the web server (nginx X-Accel-Redirect, Apache X-Sendfile).
 * Extra API paths and an optional required header, so plugins already built against another license server can keep their URLs.
 * A "Medusa compatible" response format for stores moving from a Medusa license backend.
 
 Everything is configured under Settings → Licenses. Nothing is tied to one site.
 
-Still to come: release uploads, the My Account page and the admin license screens.
+Still to come: the My Account page and the admin license screens.
 
 = License API =
 
@@ -51,11 +53,18 @@ Base: `/wp-json/beltoft-licenses/v1/`
 
 By default in a protected folder inside uploads. On nginx, deny direct access to `wp-content/uploads/beltoft-licenses-private/`, or choose a folder outside the web root in the settings.
 
+= How do I connect GitHub? =
+
+Under Settings → Licenses → GitHub releases, list each repository as `owner/repository => software-slug` and set a secret. On GitHub, add a webhook to the repository (or organisation) with the URL shown there, content type `application/json`, the same secret, and the "Releases" event. Attach a built `.zip` to the release, or the source zip is used.
+
 = Does deleting the plugin delete licenses? =
 
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.3.0 =
+* Releases: upload screen, current version and rollback, GitHub release webhook.
 
 = 0.2.0 =
 * License tab on products, licenses from paid orders, refunds, free plans.

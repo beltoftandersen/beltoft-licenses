@@ -35,6 +35,8 @@ final class Plugin {
 		Lifecycle\Expiry::register();
 		// Hooks itself only when WooCommerce Subscriptions is active.
 		Lifecycle\Subscriptions::register();
+		Releases\AdminScreen::register();
+		Releases\GitHub::register();
 	}
 
 	/**

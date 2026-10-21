@@ -151,6 +151,48 @@ final class Settings {
 				'default' => 0,
 				'label'   => __( 'My Account downloads need at least one activated site', 'beltoft-licenses' ),
 			),
+			'release_max_mb'           => array(
+				'section' => 'downloads',
+				'type'    => 'number',
+				'default' => 50,
+				'min'     => 1,
+				'label'   => __( 'Largest release file (MB)', 'beltoft-licenses' ),
+			),
+			// GitHub.
+			'github_repos'             => array(
+				'section' => 'github',
+				'type'    => 'textarea',
+				'default' => '',
+				'label'   => __( 'Repositories', 'beltoft-licenses' ),
+				'desc'    => __( 'One per line: owner/repository => software slug. A published GitHub release of that repository becomes a release of that software.', 'beltoft-licenses' ),
+			),
+			'github_secret'            => array(
+				'section' => 'github',
+				'type'    => 'password',
+				'default' => '',
+				'label'   => __( 'Webhook secret', 'beltoft-licenses' ),
+				'desc'    => __( 'The secret set on the GitHub webhook (content type application/json, event "Releases"). Leave empty to keep the saved one.', 'beltoft-licenses' ),
+			),
+			'github_token'             => array(
+				'section' => 'github',
+				'type'    => 'password',
+				'default' => '',
+				'label'   => __( 'Access token', 'beltoft-licenses' ),
+				'desc'    => __( 'Only for private repositories: a token that can read their contents. Leave empty to keep the saved one.', 'beltoft-licenses' ),
+			),
+			'github_auto_publish'      => array(
+				'section' => 'github',
+				'type'    => 'checkbox',
+				'default' => 1,
+				'label'   => __( 'Make a GitHub release the current version straight away', 'beltoft-licenses' ),
+				'desc'    => __( 'Off: the release is stored, and becomes current when you choose it under Products → Releases.', 'beltoft-licenses' ),
+			),
+			'github_prereleases'       => array(
+				'section' => 'github',
+				'type'    => 'checkbox',
+				'default' => 0,
+				'label'   => __( 'Also take pre-releases', 'beltoft-licenses' ),
+			),
 			// My Account.
 			'account_endpoint'         => array(
 				'section' => 'account',
@@ -197,6 +239,7 @@ final class Settings {
 			'api'           => __( 'License API', 'beltoft-licenses' ),
 			'subscriptions' => __( 'Subscriptions', 'beltoft-licenses' ),
 			'downloads'     => __( 'Downloads', 'beltoft-licenses' ),
+			'github'        => __( 'GitHub releases', 'beltoft-licenses' ),
 			'account'       => __( 'My Account', 'beltoft-licenses' ),
 			'advanced'      => __( 'Advanced', 'beltoft-licenses' ),
 		);
@@ -349,8 +392,21 @@ final class Settings {
 				}
 				echo '</select>';
 				break;
+			case 'password':
+				// A saved secret is never printed back into the page.
+				printf(
+					'<input type="password" id="%1$s" name="%2$s" value="" class="regular-text" autocomplete="new-password" placeholder="%3$s">',
+					esc_attr( $id ),
+					esc_attr( $name ),
+					esc_attr( '' !== (string) $value ? __( 'Saved', 'beltoft-licenses' ) : '' )
+				);
+				break;
 			default:
 				printf( '<input type="text" id="%1$s" name="%2$s" value="%3$s" class="regular-text">', esc_attr( $id ), esc_attr( $name ), esc_attr( (string) $value ) );
+		}
+
+		if ( 'github_repos' === $key ) {
+			printf( '<p class="description">%s <code>%s</code></p>', esc_html__( 'Webhook URL:', 'beltoft-licenses' ), esc_html( rest_url( Api\Router::NAMESPACE . '/github' ) ) );
 		}
 
 		if ( ! empty( $field['desc'] ) ) {
@@ -383,6 +439,11 @@ final class Settings {
 					break;
 				case 'textarea':
 					$clean[ $key ] = sanitize_textarea_field( (string) $raw );
+					break;
+				case 'password':
+					// Empty means "keep the saved one": the field is never pre-filled.
+					$raw           = trim( (string) $raw );
+					$clean[ $key ] = '' === $raw ? (string) self::get( $key ) : sanitize_text_field( $raw );
 					break;
 				default:
 					$clean[ $key ] = sanitize_text_field( (string) $raw );
