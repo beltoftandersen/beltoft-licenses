@@ -2,3 +2,4 @@
 .internal/
 CLAUDE.md
 .claude/
+.playwright-mcp/

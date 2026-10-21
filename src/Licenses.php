@@ -143,6 +143,52 @@ final class Licenses {
 	}
 
 	/**
+	 * Licenses for the admin list: filtered, searched and paged, newest first.
+	 *
+	 * The search matches part of a key, an email address or a site.
+	 *
+	 * @param array{status?:string, product_slug?:string, search?:string, per_page?:int, page?:int} $args Filters.
+	 * @return array{0: array<int, array<string, mixed>>, 1: int} Licenses and the total matching.
+	 */
+	public static function query( array $args = array() ): array {
+		global $wpdb;
+
+		$t      = Install::tables();
+		$where  = array( '1=1' );
+		$params = array( $t['licenses'] );
+
+		if ( ! empty( $args['status'] ) && in_array( $args['status'], self::STATUSES, true ) ) {
+			$where[]  = 'status = %s';
+			$params[] = $args['status'];
+		}
+
+		if ( ! empty( $args['product_slug'] ) ) {
+			$where[]  = 'product_slug = %s';
+			$params[] = (string) $args['product_slug'];
+		}
+
+		if ( ! empty( $args['search'] ) ) {
+			$like     = '%' . $wpdb->esc_like( trim( (string) $args['search'] ) ) . '%';
+			$where[]  = '(license_key LIKE %s OR email LIKE %s OR id IN (SELECT license_id FROM %i WHERE domain LIKE %s))';
+			$params[] = $like;
+			$params[] = $like;
+			$params[] = $t['activations'];
+			$params[] = $like;
+		}
+
+		$per_page = max( 1, min( 200, (int) ( $args['per_page'] ?? 20 ) ) );
+		$offset   = ( max( 1, (int) ( $args['page'] ?? 1 ) ) - 1 ) * $per_page;
+		$sql_from = 'FROM %i WHERE ' . implode( ' AND ', $where );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, PluginCheck.Security.DirectDB.UnescapedDBParameter -- custom table; $sql_from holds only fixed SQL and placeholders.
+		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) $sql_from", $params ) );
+		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT * $sql_from ORDER BY id DESC LIMIT %d OFFSET %d", array_merge( $params, array( $per_page, $offset ) ) ), ARRAY_A );
+		// phpcs:enable
+
+		return array( array_map( array( __CLASS__, 'hydrate' ), is_array( $rows ) ? $rows : array() ), $total );
+	}
+
+	/**
 	 * A customer's existing license for a piece of software: by user ID when there is one,
 	 * otherwise by email. Used so a free plan is claimed once.
 	 *

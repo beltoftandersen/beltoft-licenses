@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,10 @@ Under Settings → Licenses → GitHub releases, list each repository as `owner/
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.5.0 =
+* WooCommerce → Licenses: search, filters, bulk revoke, suspend and reactivate, CSV export, a screen per license (status, expiry, site limit, sites, history) and manual issue.
+* A Licenses box on order and subscription screens.
 
 = 0.4.0 =
 * My Account → Licenses, keys on order pages and emails, license history.

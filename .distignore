@@ -8,3 +8,4 @@ tests
 phpunit.xml.dist
 .phpunit.result.cache
 README.md
+.playwright-mcp
