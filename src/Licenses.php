@@ -251,6 +251,19 @@ final class Licenses {
 			if ( $before['expires_at'] !== $after['expires_at'] ) {
 				do_action( 'beltoft_licenses_expiry_changed', $after, $before['expires_at'] );
 			}
+
+			$changed = array_values( array_filter( $allowed, static fn( $column ) => array_key_exists( $column, $row ) && $before[ $column ] !== $after[ $column ] ) );
+
+			if ( $changed ) {
+				/**
+				 * Fires once after a license update that changed at least one column.
+				 *
+				 * @param array<string, mixed> $after   The license after the update.
+				 * @param array<string, mixed> $before  The license before the update.
+				 * @param string[]             $changed Names of the changed columns, never updated_at.
+				 */
+				do_action( 'beltoft_licenses_license_updated', $after, $before, $changed );
+			}
 		}
 
 		return $ok;

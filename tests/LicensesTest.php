@@ -71,6 +71,37 @@ class LicensesTest extends TestCase {
 		$this->assertFalse( Licenses::update( $l['id'], array( 'status' => 'bogus' ) ) );
 	}
 
+	public function test_update_fires_license_updated_with_changed_columns(): void {
+		$l     = $this->license( array( 'max_activations' => 2 ) );
+		$calls = array();
+		$spy   = static function ( $after, $before, $changed ) use ( &$calls ) {
+			$calls[] = array( $after, $before, $changed );
+		};
+		add_action( 'beltoft_licenses_license_updated', $spy, 10, 3 );
+
+		Licenses::update( $l['id'], array( 'max_activations' => 5, 'email' => 'new@example.org', 'status' => 'active' ) );
+		remove_action( 'beltoft_licenses_license_updated', $spy, 10 );
+
+		$this->assertCount( 1, $calls );
+		$this->assertSame( array( 'max_activations', 'email' ), $calls[0][2] );
+		$this->assertSame( 5, $calls[0][0]['max_activations'] );
+		$this->assertSame( 2, $calls[0][1]['max_activations'] );
+	}
+
+	public function test_update_without_changes_fires_nothing(): void {
+		$l     = $this->license( array( 'max_activations' => 2 ) );
+		$calls = 0;
+		$spy   = static function () use ( &$calls ) {
+			++$calls;
+		};
+		add_action( 'beltoft_licenses_license_updated', $spy );
+
+		$this->assertTrue( Licenses::update( $l['id'], array( 'max_activations' => 2, 'status' => 'active' ) ) );
+		remove_action( 'beltoft_licenses_license_updated', $spy );
+
+		$this->assertSame( 0, $calls );
+	}
+
 	public function test_iso_matches_javascript_tojson(): void {
 		$this->assertSame( '2030-01-02T03:04:05.000Z', Licenses::iso( '2030-01-02 03:04:05' ) );
 		$this->assertNull( Licenses::iso( null ) );

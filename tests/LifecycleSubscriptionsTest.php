@@ -151,6 +151,40 @@ class LifecycleSubscriptionsTest extends TestCase {
 		$this->assertSame( 'activation_limit', Licenses::activate( $down, 'three.example' )['code'] );
 	}
 
+	public function test_wcs_switch_fires_license_updated(): void {
+		$parent = new \WC_Product_Variable();
+		$parent->set_name( 'Tiered' );
+		$parent->update_meta_data( Software::META_LICENSED, 'yes' );
+		$parent->update_meta_data( Software::META_SLUG, 'switch-plugin' );
+		$parent->update_meta_data( Product::META_MAX, '1' );
+		$parent->save();
+
+		$three = new \WC_Product_Variation();
+		$three->set_parent_id( $parent->get_id() );
+		$three->set_regular_price( '30' );
+		$three->update_meta_data( Product::META_MAX, '3' );
+		$three->save();
+
+		$sub = $this->subscription( $this->product_with_limit( 1, 'switch-plugin' ) );
+		Subscriptions::activated( $sub );
+		$license = $this->licenses( $sub )[0];
+
+		$calls = array();
+		$spy   = static function ( $after, $before, $changed ) use ( &$calls ) {
+			$calls[] = $changed;
+		};
+		add_action( 'beltoft_licenses_license_updated', $spy, 10, 3 );
+
+		$sub->items = $this->subscription( wc_get_product( $three->get_id() ) )->items;
+		Subscriptions::sync_limits( $sub );
+		remove_action( 'beltoft_licenses_license_updated', $spy, 10 );
+
+		$this->assertCount( 1, $calls );
+		$this->assertContains( 'max_activations', $calls[0] );
+		$this->assertContains( 'variation_id', $calls[0] );
+		$this->assertSame( 3, Licenses::find( $license['id'] )['max_activations'] );
+	}
+
 	public function test_subscription_products_are_not_issued_by_the_order(): void {
 		$this->assertFalse( Product::is_subscription( $this->product_with_limit( 1 ) ), 'without WooCommerce Subscriptions nothing is a subscription product' );
 	}
