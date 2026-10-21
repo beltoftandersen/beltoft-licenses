@@ -548,6 +548,7 @@ final class Import {
 			Install::tables()['activations'],
 			array(
 				'license_id'     => $license_id,
+				'kind'           => 'site',
 				'domain'         => $domain,
 				'live_domain'    => null === $deactivated_at ? $domain : null,
 				'activated_at'   => $activated_at,

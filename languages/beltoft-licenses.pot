@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-21T14:16:54+00:00\n"
+"POT-Creation-Date: 2026-10-21T14:30:21+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: beltoft-licenses\n"
@@ -66,7 +66,7 @@ msgid "%s was removed from the license. You can now use it on another site."
 msgstr ""
 
 #: src/Account/Endpoint.php:274
-#: src/Admin/Screen.php:707
+#: src/Admin/Screen.php:708
 msgid "That site was not active on this license."
 msgstr ""
 
@@ -152,7 +152,7 @@ msgstr ""
 #: src/Admin/ListTable.php:48
 #: src/Admin/OrderBox.php:77
 #: src/Admin/Screen.php:273
-#: src/Admin/Screen.php:419
+#: src/Admin/Screen.php:420
 msgid "Product"
 msgstr ""
 
@@ -267,8 +267,8 @@ msgid "License issued."
 msgstr ""
 
 #: src/Admin/Screen.php:241
-#: src/Admin/Screen.php:403
-#: src/Admin/Screen.php:448
+#: src/Admin/Screen.php:404
+#: src/Admin/Screen.php:449
 msgid "Issue license"
 msgstr ""
 
@@ -277,7 +277,7 @@ msgid "Search key, email or site"
 msgstr ""
 
 #: src/Admin/Screen.php:261
-#: src/Admin/Screen.php:491
+#: src/Admin/Screen.php:492
 msgid "That license does not exist."
 msgstr ""
 
@@ -288,7 +288,7 @@ msgid "License %s"
 msgstr ""
 
 #: src/Admin/Screen.php:269
-#: src/Admin/Screen.php:404
+#: src/Admin/Screen.php:405
 msgid "All licenses"
 msgstr ""
 
@@ -302,7 +302,7 @@ msgid "Its expiry date has passed, so it counts as expired."
 msgstr ""
 
 #: src/Admin/Screen.php:297
-#: src/Admin/Screen.php:438
+#: src/Admin/Screen.php:439
 msgid "Expires"
 msgstr ""
 
@@ -311,12 +311,12 @@ msgid "At the end of this day, in the site's time zone. Leave empty for no expir
 msgstr ""
 
 #: src/Admin/Screen.php:303
-#: src/Admin/Screen.php:433
+#: src/Admin/Screen.php:434
 msgid "Site limit"
 msgstr ""
 
 #: src/Admin/Screen.php:305
-#: src/Admin/Screen.php:434
+#: src/Admin/Screen.php:435
 msgid "0 means unlimited."
 msgstr ""
 
@@ -328,108 +328,108 @@ msgstr ""
 msgid "Save license"
 msgstr ""
 
-#: src/Admin/Screen.php:339
+#: src/Admin/Screen.php:340
 msgid "Not active on any site."
 msgstr ""
 
-#: src/Admin/Screen.php:343
+#: src/Admin/Screen.php:344
 msgid "Site"
 msgstr ""
 
-#: src/Admin/Screen.php:343
+#: src/Admin/Screen.php:344
 msgid "Activated"
 msgstr ""
 
 #. translators: %s: site address.
-#: src/Admin/Screen.php:350
+#: src/Admin/Screen.php:351
 #, php-format
 msgid "Deactivate the license on %s?"
 msgstr ""
 
-#: src/Admin/Screen.php:356
+#: src/Admin/Screen.php:357
 msgid "Deactivate"
 msgstr ""
 
-#: src/Admin/Screen.php:371
+#: src/Admin/Screen.php:372
 msgid "History"
 msgstr ""
 
-#: src/Admin/Screen.php:374
+#: src/Admin/Screen.php:375
 msgid "Nothing recorded yet."
 msgstr ""
 
-#: src/Admin/Screen.php:378
+#: src/Admin/Screen.php:379
 msgid "When"
 msgstr ""
 
-#: src/Admin/Screen.php:378
+#: src/Admin/Screen.php:379
 msgid "What"
 msgstr ""
 
-#: src/Admin/Screen.php:378
+#: src/Admin/Screen.php:379
 msgid "By"
 msgstr ""
 
-#: src/Admin/Screen.php:387
+#: src/Admin/Screen.php:388
 msgid "System"
 msgstr ""
 
-#: src/Admin/Screen.php:410
+#: src/Admin/Screen.php:411
 #: src/Releases/AdminScreen.php:98
 msgid "No product has a software slug yet. Open a product, go to its License tab, tick \"Licensed product\" and enter the plugin or theme folder name."
 msgstr ""
 
-#: src/Admin/Screen.php:427
+#: src/Admin/Screen.php:428
 msgid "Customer email"
 msgstr ""
 
-#: src/Admin/Screen.php:429
+#: src/Admin/Screen.php:430
 msgid "When a user has this email, the license shows in their account."
 msgstr ""
 
-#: src/Admin/Screen.php:439
+#: src/Admin/Screen.php:440
 msgid "Optional. Leave empty for a license that does not expire."
 msgstr ""
 
 #. translators: %d: order ID.
-#: src/Admin/Screen.php:444
+#: src/Admin/Screen.php:445
 msgid "Order"
 msgstr ""
 
 #. translators: %d: order ID.
-#: src/Admin/Screen.php:444
+#: src/Admin/Screen.php:445
 #, php-format
 msgid "Linked to order #%d"
 msgstr ""
 
-#: src/Admin/Screen.php:505
-#: src/Admin/Screen.php:566
+#: src/Admin/Screen.php:506
+#: src/Admin/Screen.php:567
 msgid "The expiry date is not a valid date."
 msgstr ""
 
-#: src/Admin/Screen.php:517
+#: src/Admin/Screen.php:518
 msgid "The license could not be saved."
 msgstr ""
 
 #. translators: 1: previous site limit, 2: new site limit; 0 means unlimited.
-#: src/Admin/Screen.php:525
+#: src/Admin/Screen.php:526
 #, php-format
 msgid "Site limit %1$d → %2$d."
 msgstr ""
 
-#: src/Admin/Screen.php:555
+#: src/Admin/Screen.php:556
 msgid "Choose a licensed product."
 msgstr ""
 
-#: src/Admin/Screen.php:559
+#: src/Admin/Screen.php:560
 msgid "Enter the customer's email address."
 msgstr ""
 
-#: src/Admin/Screen.php:588
+#: src/Admin/Screen.php:589
 msgid "The license could not be created."
 msgstr ""
 
-#: src/Admin/Screen.php:768
+#: src/Admin/Screen.php:769
 msgid "You are not allowed to manage licenses."
 msgstr ""
 

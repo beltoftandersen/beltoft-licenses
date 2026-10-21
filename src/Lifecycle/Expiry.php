@@ -1,6 +1,6 @@
 <?php
 /**
- * The daily expiry run.
+ * The expiry run: daily, or hourly when the setting is on.
  *
  * @package BeltoftLicenses
  */
@@ -14,8 +14,8 @@ use BeltoftLicenses\Settings;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Marks active licenses past their expiry date as expired, once a day, so lists and
- * reports show the real state. The API does not wait for this: it checks the date on
+ * Marks active licenses past their expiry date as expired, once a day (or every hour, by
+ * setting), so lists and reports show the real state. The API does not wait for this: it checks the date on
  * every request.
  */
 final class Expiry {

@@ -1,6 +1,6 @@
 <?php
 /**
- * The daily expiry run.
+ * The expiry run: daily, or hourly when the setting is on.
  *
  * @package BeltoftLicenses
  */

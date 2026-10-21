@@ -18,21 +18,19 @@ Beltoft Licenses turns WooCommerce products into licensed software.
 * A License tab on products: software slug, sites per license (variations can set their own, for site tiers; 0 is unlimited), current version and a free-plan option.
 * One license per unit when an order is paid; a full refund revokes it. A free plan is claimed once per customer.
 * Works with WooCommerce Subscriptions without taking over any of its work: billing, renewals, retries, switching and its emails stay with Subscriptions. Licenses follow the subscription: active while it is, a grace period while it is on hold (3 days by default), to the end of the paid period when cancelled, and the new site limit after a switch.
-* A daily job marks licenses past their expiry as expired.
+* A daily job (or hourly, by setting) marks licenses past their expiry as expired.
 * A license API for your plugins and themes: validate, activate, deactivate and download, with short-lived signed download links.
 * Products → Releases: upload a version with its changelog, choose which version is current (to roll back), delete old ones. A zip must contain one folder named after the software.
 * GitHub releases: a published release of a listed repository becomes a release, from its attached zip or its source zip (repackaged to the right folder name). Private repositories work with an access token.
 * My Account → Licenses (the slug and label are settings): each license with its key and a copy button, sites in use, validity, the latest version, "Free this site" for each active site, a download of the current version, and a link to its subscription. A small layout stylesheet is included, and themes can override the template or turn the stylesheet off.
 * License keys on the order received page, the customer's order view and customer order emails (once paid).
 * A history of each license (created, status and expiry changes, activations), shared with plugins built on top.
-* Hooks for plugins built on top: `beltoft_licenses_account_license` adds a panel to each license on the account page; `beltoft_licenses_license_created`, `_status_changed`, `_expiry_changed`, `_activated` and `_deactivated` follow every change.
+* Hooks for plugins built on top: `beltoft_licenses_account_license` adds a panel to each license on the account page; `beltoft_licenses_license_created`, `_license_updated`, `_status_changed`, `_expiry_changed`, `_activated` and `_deactivated` follow every change. `_activated` and `_deactivated` fire for sites and for resources of other kinds alike, with the site or resource identifier as the second argument and the activation row (with its `kind`) as the third. Filters: `beltoft_licenses_api_license` keeps a license out of the API; `beltoft_licenses_resource_label` and `beltoft_licenses_account_show_key` change what the account page shows.
 * Release files served from a protected folder, by PHP or by the web server (nginx X-Accel-Redirect, Apache X-Sendfile).
 * Extra API paths and an optional required header, so plugins already built against another license server can keep their URLs.
 * A "Medusa compatible" response format for stores moving from a Medusa license backend.
 
 Everything is configured under Settings → Licenses. Nothing is tied to one site.
-
-Still to come: the admin license screens.
 
 = License API =
 
@@ -86,7 +84,7 @@ Only if "Delete all licenses, releases and settings when the plugin is deleted" 
 == Changelog ==
 
 = 0.7.0 =
-* Activation kinds and a resource API for plugins built on top: `add_resource`, `close_resource`, `update_resource_meta`, `resources` and `activation`. Site activations keep kind `site`; other kinds match `[a-z0-9_-]{1,20}`.
+* Activation kinds and a resource API for plugins built on top: `add_resource`, `close_resource`, `update_resource_meta`, `resources` and `activation`. Site activations keep kind `site`; other kinds match `[a-z0-9_-]{1,20}`. `beltoft_licenses_activated` and `_deactivated` also fire for resources (identifier second, activation row third).
 * Action `beltoft_licenses_license_updated` after any license change.
 * Filter `beltoft_licenses_api_license` to keep licenses out of the API.
 * Display filters: `beltoft_licenses_resource_label` and `beltoft_licenses_account_show_key`.

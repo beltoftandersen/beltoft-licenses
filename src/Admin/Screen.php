@@ -333,6 +333,7 @@ final class Screen {
 	private static function render_sites( array $license ): void {
 		$sites = Licenses::live_activations( (int) $license['id'], 'site' );
 
+		// The heading counts sites only, on purpose; resources of other kinds are not listed here.
 		echo '<h2>' . esc_html( View::sites_label( count( $sites ), (int) $license['max_activations'] ) ) . '</h2>';
 
 		if ( ! $sites ) {
