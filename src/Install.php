@@ -14,14 +14,14 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Install {
 
-	public const DB_VERSION        = '1';
+	public const DB_VERSION        = '2';
 	public const OPTION_DB_VERSION = 'beltoft_licenses_db_version';
 	public const OPTION_SECRET     = 'beltoft_licenses_token_secret';
 
 	/**
 	 * Table names, prefixed for this install.
 	 *
-	 * @return array{licenses:string, activations:string, releases:string}
+	 * @return array{licenses:string, activations:string, releases:string, events:string}
 	 */
 	public static function tables(): array {
 		global $wpdb;
@@ -30,6 +30,7 @@ final class Install {
 			'licenses'    => $wpdb->prefix . 'beltoft_licenses',
 			'activations' => $wpdb->prefix . 'beltoft_licenses_activations',
 			'releases'    => $wpdb->prefix . 'beltoft_licenses_releases',
+			'events'      => $wpdb->prefix . 'beltoft_licenses_events',
 		);
 	}
 
@@ -39,6 +40,8 @@ final class Install {
 	public static function activate(): void {
 		self::create_tables();
 		self::ensure_secret();
+		// The My Account endpoint's rewrite rule exists from the next request on.
+		update_option( Account\Endpoint::OPTION_FLUSH, 1 );
 	}
 
 	/**
@@ -55,6 +58,8 @@ final class Install {
 		if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
 			self::create_tables();
 			self::ensure_secret();
+			// An update never runs the activation hook: rules for new endpoints come from here.
+			update_option( Account\Endpoint::OPTION_FLUSH, 1 );
 		}
 	}
 
@@ -131,6 +136,21 @@ final class Install {
 				published_at datetime NOT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY slug_version (product_slug,version)
+			) $collate;"
+		);
+
+		// The history of each license: what changed, when, and by whom. Shared with plugins
+		// built on top of this one, which log their own events against the same license.
+		dbDelta(
+			"CREATE TABLE {$t['events']} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				license_id bigint(20) unsigned NOT NULL,
+				type varchar(40) NOT NULL,
+				message text NOT NULL,
+				user_id bigint(20) unsigned NULL DEFAULT NULL,
+				created_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				KEY license_id (license_id)
 			) $collate;"
 		);
 

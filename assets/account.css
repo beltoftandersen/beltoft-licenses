@@ -1,0 +1,106 @@
+/*
+ * My Account → Licenses. Layout only: fonts and colours come from the theme.
+ * Turn it off with add_filter( 'beltoft_licenses_account_css', '__return_false' ).
+ */
+.beltoft-licenses {
+	display: grid;
+	gap: 1.5em;
+}
+
+.beltoft-licenses__license {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	padding: 1.25em 1.5em;
+}
+
+.beltoft-licenses__head {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 0.5em 1em;
+	margin-bottom: 1em;
+}
+
+.beltoft-licenses__product {
+	margin: 0;
+}
+
+.beltoft-licenses__status {
+	font-size: 0.875em;
+	padding: 0.1em 0.6em;
+	border: 1px solid currentColor;
+}
+
+.beltoft-licenses__license--expired .beltoft-licenses__status,
+.beltoft-licenses__license--revoked .beltoft-licenses__status,
+.beltoft-licenses__license--suspended .beltoft-licenses__status {
+	opacity: 0.7;
+}
+
+.beltoft-licenses__facts {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.5em 1.5em;
+	align-items: center;
+	margin: 0 0 1em;
+}
+
+.beltoft-licenses__facts dt {
+	font-weight: 600;
+}
+
+.beltoft-licenses__facts dd {
+	margin: 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.beltoft-licenses__key {
+	user-select: all;
+	word-break: break-all;
+}
+
+.beltoft-licenses__sites {
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.beltoft-licenses__site {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.5em 1em;
+	padding: 0.5em 0;
+	border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.beltoft-licenses__site form {
+	margin: 0;
+}
+
+.beltoft-licenses__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75em 1.25em;
+	margin: 0;
+}
+
+@media (max-width: 600px) {
+	.beltoft-licenses__license {
+		padding: 1em;
+	}
+
+	.beltoft-licenses__facts {
+		grid-template-columns: 1fr;
+		gap: 0.15em;
+	}
+
+	.beltoft-licenses__facts dd {
+		margin-bottom: 0.6em;
+	}
+}

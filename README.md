@@ -6,7 +6,7 @@ See [readme.txt](readme.txt) for the user documentation and the license API.
 
 ## Status
 
-`0.3.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the daily expiry job, and releases (upload screen and GitHub webhook). The My Account page and admin license screens are in progress.
+`0.4.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the daily expiry job, and releases (upload screen and GitHub webhook). My Account → Licenses (0.4.0). The admin license screens are in progress.
 
 ## Development
 

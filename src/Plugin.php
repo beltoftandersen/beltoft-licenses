@@ -23,6 +23,7 @@ final class Plugin {
 		Install::maybe_upgrade();
 		Settings::register();
 		Software::register();
+		Events::register();
 		Api\Router::register();
 
 		if ( ! class_exists( 'WooCommerce' ) ) {
@@ -37,6 +38,8 @@ final class Plugin {
 		Lifecycle\Subscriptions::register();
 		Releases\AdminScreen::register();
 		Releases\GitHub::register();
+		Account\Endpoint::register();
+		Account\OrderLicenses::register();
 	}
 
 	/**
