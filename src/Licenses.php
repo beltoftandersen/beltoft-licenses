@@ -373,7 +373,24 @@ final class Licenses {
 			);
 		}
 
-		do_action( 'beltoft_licenses_activated', $license, $domain, self::activation( (int) $wpdb->insert_id ) );
+		$id = (int) $wpdb->insert_id;
+
+		do_action(
+			'beltoft_licenses_activated',
+			$license,
+			$domain,
+			self::activation_or(
+				$id,
+				array(
+					'id'           => $id,
+					'license_id'   => (int) $license['id'],
+					'kind'         => 'site',
+					'domain'       => $domain,
+					'live_domain'  => $domain,
+					'activated_at' => $now,
+				)
+			)
+		);
 
 		return array(
 			'success' => true,
@@ -392,21 +409,20 @@ final class Licenses {
 	public static function deactivate( array $license, string $domain ): array {
 		global $wpdb;
 
-		$table = Install::tables()['activations'];
-		$row   = self::live_row( (int) $license['id'], 'site', $domain );
+		$row = self::live_row( (int) $license['id'], 'site', $domain );
+		$now = gmdate( 'Y-m-d H:i:s' );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
-		$changed = $wpdb->update(
-			$table,
+		$changed = $row ? $wpdb->update(
+			Install::tables()['activations'],
 			array(
-				'deactivated_at' => gmdate( 'Y-m-d H:i:s' ),
+				'deactivated_at' => $now,
 				'live_domain'    => null,
 			),
 			array(
-				'license_id'  => (int) $license['id'],
-				'kind'        => 'site',
+				'id'          => (int) $row['id'],
 				'live_domain' => $domain,
 			)
-		);
+		) : 0;
 
 		if ( ! $changed ) {
 			return array(
@@ -416,7 +432,7 @@ final class Licenses {
 			);
 		}
 
-		do_action( 'beltoft_licenses_deactivated', $license, $domain, self::activation( (int) ( $row['id'] ?? 0 ) ) );
+		do_action( 'beltoft_licenses_deactivated', $license, $domain, self::activation_or( (int) $row['id'], self::closed( $row, $now ) ) );
 
 		return array(
 			'success' => true,
@@ -459,36 +475,44 @@ final class Licenses {
 			return $refused;
 		}
 
+		$row = array(
+			'license_id'   => (int) $license['id'],
+			'kind'         => $kind,
+			'domain'       => $identifier,
+			'live_domain'  => $identifier,
+			'meta'         => $meta ? wp_json_encode( $meta ) : null,
+			'activated_at' => gmdate( 'Y-m-d H:i:s' ),
+		);
+
 		$suppress = $wpdb->suppress_errors( true );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
-		$inserted = $wpdb->insert(
-			Install::tables()['activations'],
-			array(
-				'license_id'   => (int) $license['id'],
-				'kind'         => $kind,
-				'domain'       => $identifier,
-				'live_domain'  => $identifier,
-				'meta'         => $meta ? wp_json_encode( $meta ) : null,
-				'activated_at' => gmdate( 'Y-m-d H:i:s' ),
-			)
-		);
+		$inserted = $wpdb->insert( Install::tables()['activations'], $row );
 		$wpdb->suppress_errors( $suppress );
 
-		// Two requests for the same resource at once: the unique key stops the second.
 		if ( false === $inserted ) {
 			$live = self::live_row( (int) $license['id'], $kind, $identifier );
 
+			// Any other failure: nothing was stored.
+			if ( ! $live ) {
+				return array(
+					'success' => false,
+					'code'    => 'error',
+					'message' => 'Resource could not be stored',
+				);
+			}
+
+			// Two requests for the same resource at once: the unique key stopped the second.
 			return array(
 				'success'       => true,
 				'code'          => 'already_active',
 				'message'       => 'Resource already active',
-				'activation_id' => (int) ( $live['id'] ?? 0 ),
+				'activation_id' => (int) $live['id'],
 			);
 		}
 
 		$id = (int) $wpdb->insert_id;
 
-		do_action( 'beltoft_licenses_activated', $license, $identifier, self::activation( $id ) );
+		do_action( 'beltoft_licenses_activated', $license, $identifier, self::activation_or( $id, array( 'id' => $id ) + $row ) );
 
 		return array(
 			'success'       => true,
@@ -519,11 +543,12 @@ final class Licenses {
 			return false;
 		}
 
+		$now = gmdate( 'Y-m-d H:i:s' );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
 		$changed = $wpdb->update(
 			Install::tables()['activations'],
 			array(
-				'deactivated_at' => gmdate( 'Y-m-d H:i:s' ),
+				'deactivated_at' => $now,
 				'live_domain'    => null,
 			),
 			array(
@@ -536,7 +561,7 @@ final class Licenses {
 			return false;
 		}
 
-		do_action( 'beltoft_licenses_deactivated', $license, $identifier, self::activation( (int) $row['id'] ) );
+		do_action( 'beltoft_licenses_deactivated', $license, $identifier, self::activation_or( (int) $row['id'], self::closed( $row, $now ) ) );
 
 		return true;
 	}
@@ -557,12 +582,17 @@ final class Licenses {
 		}
 
 		$merged = array_merge( $row['meta'], $meta );
+		$json   = $merged ? wp_json_encode( $merged ) : null;
+
+		if ( false === $json ) {
+			return false;
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
 		return false !== $wpdb->update(
 			Install::tables()['activations'],
 			array(
-				'meta'       => $merged ? wp_json_encode( $merged ) : null,
+				'meta'       => $json,
 				'updated_at' => gmdate( 'Y-m-d H:i:s' ),
 			),
 			array( 'id' => $activation_id )
@@ -598,6 +628,44 @@ final class Licenses {
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id = %d', Install::tables()['activations'], $activation_id ), ARRAY_A );
 
 		return $row ? self::decode_meta( $row ) : null;
+	}
+
+	/**
+	 * The activation row for an action: read back, or, if it is gone already (another request
+	 * removed it), the values written. Listeners always get an array.
+	 *
+	 * @param int                  $activation_id Activation ID.
+	 * @param array<string, mixed> $fallback      The row as written.
+	 * @return array<string, mixed> Row with meta decoded.
+	 */
+	private static function activation_or( int $activation_id, array $fallback ): array {
+		$row = self::activation( $activation_id );
+
+		if ( $row ) {
+			return $row;
+		}
+
+		$fallback += array(
+			'deactivated_at' => null,
+			'meta'           => null,
+			'updated_at'     => null,
+		);
+
+		return self::decode_meta( $fallback );
+	}
+
+	/**
+	 * A live row as it is once closed.
+	 *
+	 * @param array<string, mixed> $row Row.
+	 * @param string               $now Closing time.
+	 * @return array<string, mixed>
+	 */
+	private static function closed( array $row, string $now ): array {
+		$row['live_domain']    = null;
+		$row['deactivated_at'] = $now;
+
+		return $row;
 	}
 
 	/**

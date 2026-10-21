@@ -175,4 +175,65 @@ final class ResourcesTest extends TestCase {
 		$this->assertTrue( Licenses::is_live_on( (int) $license['id'], 'vm-12' ) );
 		$this->assertSame( 'activated', $site['code'] );
 	}
+
+	public function test_add_resource_reports_an_insert_that_failed() {
+		$license = $this->license();
+		$table   = \BeltoftLicenses\Install::tables()['activations'];
+		$break   = static function ( $query ) use ( $table ) {
+			return 0 === strpos( $query, "INSERT INTO `$table`" ) ? 'SELECT * FROM zz_no_such_table' : $query;
+		};
+		add_filter( 'query', $break );
+		$result = Licenses::add_resource( $license, 'vm', 'vm-1' );
+		remove_filter( 'query', $break );
+
+		$this->assertFalse( $result['success'] );
+		$this->assertSame( 'error', $result['code'] );
+		$this->assertSame( 'Resource could not be stored', $result['message'] );
+		$this->assertArrayNotHasKey( 'activation_id', $result );
+		$this->assertSame( array(), Licenses::resources( (int) $license['id'] ) );
+	}
+
+	public function test_actions_always_get_an_activation_row() {
+		$license = $this->license();
+		$seen    = array();
+		$listen  = function ( array $lic, string $identifier, array $activation ) use ( &$seen ) {
+			$seen[] = array( $identifier, $activation['kind'], (int) $activation['id'] > 0 );
+		};
+		add_action( 'beltoft_licenses_activated', $listen, 10, 3 );
+		add_action( 'beltoft_licenses_deactivated', $listen, 10, 3 );
+
+		// The row is gone by the time it is read back, as when another request removes it.
+		$hide = static function ( $query ) {
+			return false !== strpos( $query, 'SELECT * FROM' ) && preg_match( '/WHERE id = \d+$/', $query ) ? $query . ' AND 0 = 1' : $query;
+		};
+		add_filter( 'query', $hide );
+
+		Licenses::activate( $license, 'a.test' );
+		Licenses::deactivate( $license, 'a.test' );
+		Licenses::add_resource( $license, 'vm', 'vm-1' );
+		Licenses::close_resource( $license, 'vm', 'vm-1' );
+
+		remove_filter( 'query', $hide );
+
+		$this->assertSame(
+			array(
+				array( 'a.test', 'site', true ),
+				array( 'a.test', 'site', true ),
+				array( 'vm-1', 'vm', true ),
+				array( 'vm-1', 'vm', true ),
+			),
+			$seen
+		);
+	}
+
+	public function test_update_resource_meta_writes_nothing_it_cannot_encode() {
+		$license = $this->license();
+		$added   = Licenses::add_resource( $license, 'vm', 'vm-1', array( 'a' => 1 ) );
+
+		$this->assertFalse( Licenses::update_resource_meta( $added['activation_id'], array( 'b' => NAN ) ) );
+
+		$row = Licenses::activation( $added['activation_id'] );
+		$this->assertSame( array( 'a' => 1 ), $row['meta'] );
+		$this->assertNull( $row['updated_at'] );
+	}
 }

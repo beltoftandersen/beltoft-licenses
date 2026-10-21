@@ -95,6 +95,14 @@ class AccountTest extends TestCase {
 		$this->assertCount( 0, Licenses::live_activations( $mine['id'] ) );
 	}
 
+	public function test_free_site_cannot_close_a_resource_with_the_same_name(): void {
+		$mine  = $this->license( array( 'user_id' => $this->user ) );
+		$added = Licenses::add_resource( $mine, 'vm', 'vm-1' );
+
+		$this->assertFalse( Endpoint::free_site( $mine['id'], 'vm-1', $this->user ) );
+		$this->assertSame( 'vm-1', Licenses::activation( $added['activation_id'] )['live_domain'] );
+	}
+
 	public function test_download_needs_an_active_license_and_a_release(): void {
 		$this->software( 'my-plugin', '1.0.0' );
 		$active  = View::license( $this->license( array( 'user_id' => $this->user ) ) );
