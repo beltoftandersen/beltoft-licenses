@@ -30,6 +30,7 @@ final class Expiry {
 		add_action( self::HOOK, array( __CLASS__, 'run' ) );
 		add_action( 'action_scheduler_init', array( __CLASS__, 'schedule' ) );
 		add_action( 'update_option_' . Settings::OPTION, array( __CLASS__, 'settings_updated' ), 10, 2 );
+		add_action( 'add_option_' . Settings::OPTION, array( __CLASS__, 'settings_added' ), 10, 2 );
 	}
 
 	/**
@@ -52,6 +53,16 @@ final class Expiry {
 			self::unschedule();
 			self::schedule();
 		}
+	}
+
+	/**
+	 * Reschedules when the settings are first saved with the hourly flag on.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  New settings.
+	 */
+	public static function settings_added( $option, $value ): void {
+		self::settings_updated( array(), $value );
 	}
 
 	/**

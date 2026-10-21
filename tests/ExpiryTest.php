@@ -61,4 +61,15 @@ class ExpiryTest extends TestCase {
 		$this->assertSame( $ids, as_get_scheduled_actions( array( 'hook' => Expiry::HOOK, 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'ids' ) );
 		Expiry::unschedule();
 	}
+
+	public function test_first_save_with_hourly_on_reschedules(): void {
+		Expiry::unschedule();
+		delete_option( Settings::OPTION );
+		Expiry::schedule();
+		add_option( Settings::OPTION, array( 'expiry_hourly' => 1 ) );
+		$ids = as_get_scheduled_actions( array( 'hook' => Expiry::HOOK, 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'ids' );
+		$this->assertCount( 1, $ids );
+		$this->assertSame( '0 * * * *', \ActionScheduler::store()->fetch_action( $ids[0] )->get_schedule()->get_recurrence() );
+		Expiry::unschedule();
+	}
 }
