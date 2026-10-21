@@ -8,6 +8,7 @@
 namespace BeltoftLicenses\Tests;
 
 use BeltoftLicenses\Licenses;
+use BeltoftLicenses\Settings;
 use BeltoftLicenses\Lifecycle\Expiry;
 
 class ExpiryTest extends TestCase {
@@ -34,5 +35,30 @@ class ExpiryTest extends TestCase {
 		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => Expiry::HOOK, 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'ids' ) );
 		Expiry::unschedule();
 		$this->assertFalse( as_has_scheduled_action( Expiry::HOOK ) );
+	}
+
+	public function test_cron_follows_the_setting(): void {
+		update_option( Settings::OPTION, array( 'expiry_hourly' => 0 ) );
+		$this->assertSame( '0 2 * * *', Expiry::cron() );
+		update_option( Settings::OPTION, array( 'expiry_hourly' => 1 ) );
+		$this->assertSame( '0 * * * *', Expiry::cron() );
+	}
+
+	public function test_toggling_leaves_exactly_one_schedule(): void {
+		Expiry::unschedule();
+		update_option( Settings::OPTION, array( 'expiry_hourly' => 0 ) );
+		Expiry::schedule();
+		foreach ( array( 1, 0, 1 ) as $on ) {
+			update_option( Settings::OPTION, array( 'expiry_hourly' => $on ) );
+			$ids = as_get_scheduled_actions( array( 'hook' => Expiry::HOOK, 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'ids' );
+			$this->assertCount( 1, $ids );
+		}
+		$action = \ActionScheduler::store()->fetch_action( $ids[0] );
+		$this->assertSame( '0 * * * *', $action->get_schedule()->get_recurrence() );
+
+		// An unrelated change leaves the schedule alone.
+		update_option( Settings::OPTION, array( 'expiry_hourly' => 1, 'grace_days' => 5 ) );
+		$this->assertSame( $ids, as_get_scheduled_actions( array( 'hook' => Expiry::HOOK, 'status' => \ActionScheduler_Store::STATUS_PENDING ), 'ids' ) );
+		Expiry::unschedule();
 	}
 }

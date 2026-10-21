@@ -119,6 +119,13 @@ final class Settings {
 				'default' => 1,
 				'label'   => __( 'Revoke licenses when their order is fully refunded', 'beltoft-licenses' ),
 			),
+			'expiry_hourly'            => array(
+				'section' => 'subscriptions',
+				'type'    => 'checkbox',
+				'default' => 0,
+				'label'   => __( 'Check expiry every hour', 'beltoft-licenses' ),
+				'desc'    => __( 'Licenses past their end date expire within the hour instead of at the daily run. Useful when other plugins act on expiry.', 'beltoft-licenses' ),
+			),
 			// Downloads.
 			'storage_dir'              => array(
 				'section' => 'downloads',

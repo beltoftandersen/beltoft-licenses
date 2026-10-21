@@ -9,6 +9,7 @@ namespace BeltoftLicenses\Lifecycle;
 
 use BeltoftLicenses\Install;
 use BeltoftLicenses\Licenses;
+use BeltoftLicenses\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -28,14 +29,37 @@ final class Expiry {
 	public static function register(): void {
 		add_action( self::HOOK, array( __CLASS__, 'run' ) );
 		add_action( 'action_scheduler_init', array( __CLASS__, 'schedule' ) );
+		add_action( 'update_option_' . Settings::OPTION, array( __CLASS__, 'settings_updated' ), 10, 2 );
 	}
 
 	/**
-	 * Schedules the daily run at 02:00 site time, once.
+	 * The cron expression: hourly when the setting is on, else daily at 02:00.
+	 */
+	public static function cron(): string {
+		return Settings::get( 'expiry_hourly' ) ? '0 * * * *' : '0 2 * * *';
+	}
+
+	/**
+	 * Reschedules when the hourly setting changed.
+	 *
+	 * @param mixed $old_value Previous settings.
+	 * @param mixed $value     New settings.
+	 */
+	public static function settings_updated( $old_value, $value ): void {
+		$was = is_array( $old_value ) && ! empty( $old_value['expiry_hourly'] );
+		$is  = is_array( $value ) && ! empty( $value['expiry_hourly'] );
+		if ( $was !== $is ) {
+			self::unschedule();
+			self::schedule();
+		}
+	}
+
+	/**
+	 * Schedules the run (daily at 02:00 site time, or hourly by setting), once.
 	 */
 	public static function schedule(): void {
 		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( self::HOOK, array(), self::GROUP ) ) {
-			as_schedule_cron_action( time(), '0 2 * * *', self::HOOK, array(), self::GROUP );
+			as_schedule_cron_action( time(), self::cron(), self::HOOK, array(), self::GROUP );
 		}
 	}
 
