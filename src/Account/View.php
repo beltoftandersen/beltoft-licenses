@@ -30,6 +30,7 @@ final class View {
 		$domains = array_map( static fn( $a ) => (string) $a['domain'], Licenses::live_activations( (int) $license['id'], 'site' ) );
 		$version = '' !== $license['product_slug'] ? Software::current_version( $license['product_slug'] ) : null;
 		$active  = Licenses::STATUS_ACTIVE === $status;
+		$used    = count( Licenses::live_activations( (int) $license['id'] ) );
 
 		$can_download = $active
 			&& null !== $version && '' !== $version
@@ -45,8 +46,16 @@ final class View {
 			'status_label' => self::status_label( $status ),
 			'active'       => $active,
 			'max'          => (int) $license['max_activations'],
-			'used'         => count( $domains ),
-			'sites'        => self::sites_label( count( $domains ), (int) $license['max_activations'] ),
+			'used'         => $used,
+			'sites'        => self::usage_label( $license, $used ),
+			/**
+			 * Whether My Account shows the license key. A plugin whose licenses are
+			 * entitlements rather than keys to paste can hide it.
+			 *
+			 * @param bool                 $show    Show the key, default true.
+			 * @param array<string, mixed> $license License.
+			 */
+			'show_key'     => (bool) apply_filters( 'beltoft_licenses_account_show_key', true, $license ),
 			'domains'      => $domains,
 			'expiry'       => self::expiry_label( $license, $status ),
 			'version'      => (string) $version,
@@ -81,6 +90,29 @@ final class View {
 		);
 
 		return $labels[ $status ] ?? $status;
+	}
+
+	/**
+	 * The usage line shown wherever a license lists what it has in use. Counts
+	 * every live activation, as the limit check does.
+	 *
+	 * @param array<string, mixed> $license License.
+	 * @param int|null             $used    Live activations of every kind; null to count them.
+	 */
+	public static function usage_label( array $license, ?int $used = null ): string {
+		$used ??= count( Licenses::live_activations( (int) $license['id'] ) );
+		$max    = (int) $license['max_activations'];
+
+		/**
+		 * Filters the "N of M sites" usage line, so a plugin built on this one can
+		 * say "1 of 1 server" or "2 of 3 dashboards".
+		 *
+		 * @param string               $label   The label.
+		 * @param array<string, mixed> $license License.
+		 * @param int                  $used    Live activations of every kind.
+		 * @param int                  $max     Limit, 0 for unlimited.
+		 */
+		return (string) apply_filters( 'beltoft_licenses_resource_label', self::sites_label( $used, $max ), $license, $used, $max );
 	}
 
 	/**

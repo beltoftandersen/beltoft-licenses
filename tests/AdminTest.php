@@ -7,6 +7,7 @@
 
 namespace BeltoftLicenses\Tests;
 
+use BeltoftLicenses\Admin\ListTable;
 use BeltoftLicenses\Admin\OrderBox;
 use BeltoftLicenses\Admin\Screen;
 use BeltoftLicenses\Events;
@@ -288,6 +289,20 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'view=new', $html );
 		$this->assertStringContainsString( 'email=buyer%40example.org', $html );
 		$this->assertStringContainsString( 'order_id=' . $order->get_id(), $html );
+	}
+
+	public function test_resource_label_filter_reaches_the_list_and_the_order_box(): void {
+		add_filter( 'beltoft_licenses_resource_label', static fn() => '1 of 1 server' );
+		$order = wc_create_order();
+		$order->save();
+		$license = $this->license( array( 'order_id' => $order->get_id() ) );
+
+		ob_start();
+		OrderBox::render( $order );
+		$this->assertStringContainsString( '1 of 1 server', (string) ob_get_clean() );
+
+		$table = new ListTable();
+		$this->assertSame( '1 of 1 server', ( new \ReflectionMethod( $table, 'column_default' ) )->invoke( $table, $license, 'sites' ) );
 	}
 
 	public function test_edit_screen_renders_sites_history_and_extension_point(): void {

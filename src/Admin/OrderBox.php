@@ -88,7 +88,7 @@ final class OrderBox {
 					esc_html( (string) $license['license_key'] ),
 					esc_html( View::product_name( $license ) ),
 					esc_html( View::status_label( $status ) ),
-					esc_html( View::sites_label( count( Licenses::live_activations( (int) $license['id'] ) ), (int) $license['max_activations'] ) ),
+					esc_html( View::usage_label( $license ) ),
 					esc_html( View::expiry_label( $license, $status ) )
 				);
 			}

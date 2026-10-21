@@ -178,7 +178,7 @@ final class ListTable extends \WP_List_Table {
 			case 'status':
 				return esc_html( View::status_label( Licenses::effective_status( $item ) ) );
 			case 'sites':
-				return esc_html( View::sites_label( count( Licenses::live_activations( (int) $item['id'] ) ), (int) $item['max_activations'] ) );
+				return esc_html( View::usage_label( $item ) );
 			case 'expires':
 				return esc_html( View::expiry_label( $item, Licenses::effective_status( $item ) ) );
 			case 'source':

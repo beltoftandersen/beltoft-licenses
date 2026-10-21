@@ -128,6 +128,48 @@ class AccountTest extends TestCase {
 		Endpoint::download( $mine['id'], self::factory()->user->create() );
 	}
 
+	public function test_resource_label_filter_changes_every_usage_label(): void {
+		$l = $this->license( array( 'user_id' => $this->user, 'max_activations' => 1 ) );
+		Licenses::add_resource( $l, 'vm', 'vm-1' );
+		$seen = array();
+		add_filter(
+			'beltoft_licenses_resource_label',
+			static function ( $label, $license, $used, $max ) use ( &$seen ) {
+				$seen = array( $license['id'], $used, $max );
+				return '1 of 1 server';
+			},
+			10,
+			4
+		);
+
+		$this->assertSame( '1 of 1 server', View::license( $l )['sites'] );
+		$this->assertSame( array( $l['id'], 1, 1 ), $seen, 'used counts every live row' );
+	}
+
+	public function test_show_key_filter_hides_the_key_in_my_account(): void {
+		$l = $this->license( array( 'user_id' => $this->user ) );
+		wp_set_current_user( $this->user );
+		$this->assertTrue( View::license( $l )['show_key'] );
+
+		add_filter( 'beltoft_licenses_account_show_key', '__return_false' );
+		$this->assertFalse( View::license( $l )['show_key'] );
+
+		ob_start();
+		Endpoint::render();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringNotContainsString( $l['license_key'], $html );
+		$this->assertStringNotContainsString( 'License key', $html );
+	}
+
+	public function test_domains_list_sites_only(): void {
+		$l = $this->license( array( 'max_activations' => 5 ) );
+		Licenses::activate( $l, 'shop.example' );
+		Licenses::add_resource( $l, 'vm', 'vm-1' );
+
+		$this->assertSame( array( 'shop.example' ), View::license( $l )['domains'] );
+	}
+
 	public function test_labels(): void {
 		$this->assertSame( '2 sites (unlimited)', View::sites_label( 2, 0 ) );
 		$this->assertSame( 'Renews with your subscription', View::expiry_label( array( 'expires_at' => null, 'subscription_id' => 5 ), 'active' ) );

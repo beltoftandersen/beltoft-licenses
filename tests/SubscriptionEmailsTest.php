@@ -49,6 +49,13 @@ class SubscriptionEmailsTest extends TestCase {
 		$this->assertStringNotContainsString( 'OTHER-SUB-KEY', $html );
 	}
 
+	public function test_resource_label_filter_reaches_the_notice(): void {
+		add_filter( 'beltoft_licenses_resource_label', static fn() => '1 of 1 server' );
+		$this->license( array( 'subscription_id' => $this->subscription->get_id() ) );
+
+		$this->assertStringContainsString( '1 of 1 server', $this->render( $this->email( 'customer_notification_auto_renewal' ) ) );
+	}
+
 	public function test_plain_text(): void {
 		$license = $this->license( array( 'subscription_id' => $this->subscription->get_id() ) );
 

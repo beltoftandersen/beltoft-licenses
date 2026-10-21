@@ -27,11 +27,13 @@ endif;
 			</header>
 
 			<dl class="beltoft-licenses__facts">
-				<dt><?php esc_html_e( 'License key', 'beltoft-licenses' ); ?></dt>
-				<dd>
-					<code class="beltoft-licenses__key"><?php echo esc_html( $beltoft_licenses_view['key'] ); ?></code>
-					<button type="button" class="beltoft-licenses__copy button" data-beltoft-copy="<?php echo esc_attr( $beltoft_licenses_view['key'] ); ?>"><?php esc_html_e( 'Copy', 'beltoft-licenses' ); ?></button>
-				</dd>
+				<?php if ( $beltoft_licenses_view['show_key'] ) : ?>
+					<dt><?php esc_html_e( 'License key', 'beltoft-licenses' ); ?></dt>
+					<dd>
+						<code class="beltoft-licenses__key"><?php echo esc_html( $beltoft_licenses_view['key'] ); ?></code>
+						<button type="button" class="beltoft-licenses__copy button" data-beltoft-copy="<?php echo esc_attr( $beltoft_licenses_view['key'] ); ?>"><?php esc_html_e( 'Copy', 'beltoft-licenses' ); ?></button>
+					</dd>
+				<?php endif; ?>
 
 				<dt><?php esc_html_e( 'Sites', 'beltoft-licenses' ); ?></dt>
 				<dd><?php echo esc_html( $beltoft_licenses_view['sites'] ); ?></dd>
