@@ -331,7 +331,7 @@ final class Screen {
 	 * @param array<string, mixed> $license License.
 	 */
 	private static function render_sites( array $license ): void {
-		$sites = Licenses::live_activations( (int) $license['id'] );
+		$sites = Licenses::live_activations( (int) $license['id'], 'site' );
 
 		echo '<h2>' . esc_html( View::sites_label( count( $sites ), (int) $license['max_activations'] ) ) . '</h2>';
 
@@ -612,7 +612,7 @@ final class Screen {
 			);
 
 			foreach ( $licenses as $license ) {
-				$sites = array_map( static fn( $a ) => (string) $a['domain'], Licenses::live_activations( (int) $license['id'] ) );
+				$sites = array_map( static fn( $a ) => (string) $a['domain'], Licenses::live_activations( (int) $license['id'], 'site' ) );
 				$row   = array(
 					$license['license_key'],
 					Licenses::effective_status( $license ),

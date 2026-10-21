@@ -282,21 +282,28 @@ final class Licenses {
 	/**
 	 * Live activations of a license.
 	 *
-	 * @param int $license_id License ID.
+	 * @param int         $license_id License ID.
+	 * @param string|null $kind       Only this kind ('site' for licensed sites); null for every kind.
 	 * @return array<int, array<string, mixed>>
 	 */
-	public static function live_activations( int $license_id ): array {
+	public static function live_activations( int $license_id, ?string $kind = null ): array {
 		global $wpdb;
 
 		$table = Install::tables()['activations'];
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
-		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d AND deactivated_at IS NULL ORDER BY activated_at ASC', $table, $license_id ), ARRAY_A );
+		if ( null === $kind ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+			$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d AND deactivated_at IS NULL ORDER BY activated_at ASC, id ASC', $table, $license_id ), ARRAY_A );
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+			$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d AND kind = %s AND deactivated_at IS NULL ORDER BY activated_at ASC, id ASC', $table, $license_id, $kind ), ARRAY_A );
+		}
 
 		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
-	 * Is the license live on this domain? The domain must already be normalised.
+	 * Is the license live on this site? The domain must already be normalised. Only sites count,
+	 * not other kinds of activation.
 	 *
 	 * @param int    $license_id License ID.
 	 * @param string $domain     Normalised domain.
@@ -306,7 +313,7 @@ final class Licenses {
 
 		$table = Install::tables()['activations'];
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
-		return (bool) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM %i WHERE license_id = %d AND live_domain = %s', $table, $license_id, $domain ) );
+		return (bool) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM %i WHERE license_id = %d AND kind = %s AND live_domain = %s', $table, $license_id, 'site', $domain ) );
 	}
 
 	/**
@@ -362,6 +369,7 @@ final class Licenses {
 			Install::tables()['activations'],
 			array(
 				'license_id'   => (int) $license['id'],
+				'kind'         => 'site',
 				'domain'       => $domain,
 				'live_domain'  => $domain,
 				'activated_at' => $now,
@@ -408,6 +416,7 @@ final class Licenses {
 			),
 			array(
 				'license_id'  => (int) $license['id'],
+				'kind'        => 'site',
 				'live_domain' => $domain,
 			)
 		);

@@ -27,7 +27,7 @@ final class View {
 	 */
 	public static function license( array $license ): array {
 		$status  = Licenses::effective_status( $license );
-		$domains = array_map( static fn( $a ) => (string) $a['domain'], Licenses::live_activations( (int) $license['id'] ) );
+		$domains = array_map( static fn( $a ) => (string) $a['domain'], Licenses::live_activations( (int) $license['id'], 'site' ) );
 		$version = '' !== $license['product_slug'] ? Software::current_version( $license['product_slug'] ) : null;
 		$active  = Licenses::STATUS_ACTIVE === $status;
 

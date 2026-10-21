@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Install {
 
-	public const DB_VERSION        = '2';
+	public const DB_VERSION        = '3';
 	public const OPTION_DB_VERSION = 'beltoft_licenses_db_version';
 	public const OPTION_SECRET     = 'beltoft_licenses_token_secret';
 
@@ -55,7 +55,12 @@ final class Install {
 	 * Upgrade in place when the stored schema version is behind.
 	 */
 	public static function maybe_upgrade(): void {
-		if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
+		$stored = get_option( self::OPTION_DB_VERSION );
+
+		if ( self::DB_VERSION !== $stored ) {
+			if ( $stored && version_compare( (string) $stored, '3', '<' ) ) {
+				self::upgrade_to_3();
+			}
 			self::create_tables();
 			self::ensure_secret();
 			// An update never runs the activation hook: rules for new endpoints come from here.
@@ -64,11 +69,30 @@ final class Install {
 	}
 
 	/**
+	 * Schema 3: the unique key `live` gains the activation kind. dbDelta cannot change an
+	 * existing key, so the old one is dropped here; create_tables() then adds the new columns
+	 * (existing rows get kind 'site' from the default) and the new key.
+	 */
+	private static function upgrade_to_3(): void {
+		global $wpdb;
+
+		$table = self::tables()['activations'];
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- schema change on our own table.
+		$columns = $wpdb->get_col( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', $table, 'live' ), 4 );
+
+		if ( $columns && ! in_array( 'kind', $columns, true ) ) {
+			$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX live', $table ) );
+		}
+		// phpcs:enable
+	}
+
+	/**
 	 * Creates or updates the tables with dbDelta.
 	 *
 	 * `live_domain` holds the domain while an activation is live and NULL once it is
-	 * deactivated. The unique key on (license_id, live_domain) therefore allows at most one
-	 * live row per domain while keeping the history, without needing generated columns.
+	 * deactivated. The unique key on (license_id, kind, live_domain) therefore allows at most one
+	 * live row per name and kind while keeping the history, without needing generated columns.
+	 * `kind` is 'site' for a licensed site; plugins built on this one store other kinds.
 	 */
 	public static function create_tables(): void {
 		global $wpdb;
@@ -113,11 +137,14 @@ final class Install {
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				license_id bigint(20) unsigned NOT NULL,
 				domain varchar(255) NOT NULL,
+				kind varchar(20) NOT NULL DEFAULT 'site',
 				live_domain varchar(255) NULL DEFAULT NULL,
 				activated_at datetime NOT NULL,
 				deactivated_at datetime NULL DEFAULT NULL,
+				meta longtext NULL,
+				updated_at datetime NULL DEFAULT NULL,
 				PRIMARY KEY  (id),
-				UNIQUE KEY live (license_id,live_domain(191)),
+				UNIQUE KEY live (license_id,kind,live_domain(180)),
 				KEY license_id (license_id),
 				KEY domain (domain(191))
 			) $collate;"
