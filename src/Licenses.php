@@ -329,37 +329,10 @@ final class Licenses {
 	public static function activate( array $license, string $domain ): array {
 		global $wpdb;
 
-		if ( self::STATUS_ACTIVE !== $license['status'] ) {
-			return array(
-				'success' => false,
-				'code'    => 'license_not_active',
-				/* translators: %s: license status. Kept in English by default because API clients may compare it. */
-				'message' => sprintf( 'License is %s', $license['status'] ),
-			);
-		}
+		$refused = self::gate( $license, self::is_live_on( (int) $license['id'], $domain ), 'Domain already activated' );
 
-		if ( self::is_past( $license['expires_at'] ) ) {
-			return array(
-				'success' => false,
-				'code'    => 'license_expired',
-				'message' => 'License has expired',
-			);
-		}
-
-		if ( self::is_live_on( (int) $license['id'], $domain ) ) {
-			return array(
-				'success' => true,
-				'code'    => 'already_active',
-				'message' => 'Domain already activated',
-			);
-		}
-
-		if ( $license['max_activations'] > 0 && count( self::live_activations( (int) $license['id'] ) ) >= $license['max_activations'] ) {
-			return array(
-				'success' => false,
-				'code'    => 'activation_limit',
-				'message' => sprintf( 'Maximum activations reached (%d)', $license['max_activations'] ),
-			);
+		if ( $refused ) {
+			return $refused;
 		}
 
 		$now      = gmdate( 'Y-m-d H:i:s' );
@@ -387,7 +360,7 @@ final class Licenses {
 			);
 		}
 
-		do_action( 'beltoft_licenses_activated', $license, $domain );
+		do_action( 'beltoft_licenses_activated', $license, $domain, self::activation( (int) $wpdb->insert_id ) );
 
 		return array(
 			'success' => true,
@@ -407,6 +380,7 @@ final class Licenses {
 		global $wpdb;
 
 		$table = Install::tables()['activations'];
+		$row   = self::live_row( (int) $license['id'], 'site', $domain );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
 		$changed = $wpdb->update(
 			$table,
@@ -429,13 +403,274 @@ final class Licenses {
 			);
 		}
 
-		do_action( 'beltoft_licenses_deactivated', $license, $domain );
+		do_action( 'beltoft_licenses_deactivated', $license, $domain, self::activation( (int) ( $row['id'] ?? 0 ) ) );
 
 		return array(
 			'success' => true,
 			'code'    => 'deactivated',
 			'message' => 'Deactivation successful',
 		);
+	}
+
+	/**
+	 * Adds a live resource (a VM, a service account) to a license as an activation of another kind.
+	 *
+	 * The status, expiry and limit rules, and their messages, are those of activate(). The
+	 * identifier is stored as the row's domain, so it is live while that is set.
+	 *
+	 * @param array<string, mixed> $license    License.
+	 * @param string               $kind       Kind, such as 'vm'. Not 'site'.
+	 * @param string               $identifier Resource identifier, unique within the license and kind.
+	 * @param array<string, mixed> $meta       Stored with the row as JSON.
+	 * @return array{success:bool, message:string, code:string, activation_id?:int}
+	 */
+	public static function add_resource( array $license, string $kind, string $identifier, array $meta = array() ): array {
+		global $wpdb;
+
+		if ( ! self::valid_resource( $kind, $identifier ) ) {
+			return array(
+				'success' => false,
+				'code'    => 'invalid',
+				'message' => 'Invalid kind or identifier',
+			);
+		}
+
+		$live    = self::live_row( (int) $license['id'], $kind, $identifier );
+		$refused = self::gate( $license, null !== $live, 'Resource already active' );
+
+		if ( $refused ) {
+			if ( $live ) {
+				$refused['activation_id'] = (int) $live['id'];
+			}
+
+			return $refused;
+		}
+
+		$suppress = $wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
+		$inserted = $wpdb->insert(
+			Install::tables()['activations'],
+			array(
+				'license_id'   => (int) $license['id'],
+				'kind'         => $kind,
+				'domain'       => $identifier,
+				'live_domain'  => $identifier,
+				'meta'         => $meta ? wp_json_encode( $meta ) : null,
+				'activated_at' => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		$wpdb->suppress_errors( $suppress );
+
+		// Two requests for the same resource at once: the unique key stops the second.
+		if ( false === $inserted ) {
+			$live = self::live_row( (int) $license['id'], $kind, $identifier );
+
+			return array(
+				'success'       => true,
+				'code'          => 'already_active',
+				'message'       => 'Resource already active',
+				'activation_id' => (int) ( $live['id'] ?? 0 ),
+			);
+		}
+
+		$id = (int) $wpdb->insert_id;
+
+		do_action( 'beltoft_licenses_activated', $license, $identifier, self::activation( $id ) );
+
+		return array(
+			'success'       => true,
+			'code'          => 'activated',
+			'message'       => 'Activation successful',
+			'activation_id' => $id,
+		);
+	}
+
+	/**
+	 * Closes a resource, keeping the row as history.
+	 *
+	 * @param array<string, mixed> $license    License.
+	 * @param string               $kind       Kind.
+	 * @param string               $identifier Resource identifier.
+	 * @return bool False when no such live resource exists.
+	 */
+	public static function close_resource( array $license, string $kind, string $identifier ): bool {
+		global $wpdb;
+
+		if ( ! self::valid_resource( $kind, $identifier ) ) {
+			return false;
+		}
+
+		$row = self::live_row( (int) $license['id'], $kind, $identifier );
+
+		if ( ! $row ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
+		$changed = $wpdb->update(
+			Install::tables()['activations'],
+			array(
+				'deactivated_at' => gmdate( 'Y-m-d H:i:s' ),
+				'live_domain'    => null,
+			),
+			array(
+				'id'          => (int) $row['id'],
+				'live_domain' => $identifier,
+			)
+		);
+
+		if ( ! $changed ) {
+			return false;
+		}
+
+		do_action( 'beltoft_licenses_deactivated', $license, $identifier, self::activation( (int) $row['id'] ) );
+
+		return true;
+	}
+
+	/**
+	 * Merges values into a row's meta and stamps updated_at.
+	 *
+	 * @param int                  $activation_id Activation ID.
+	 * @param array<string, mixed> $meta          Values to merge over the stored ones.
+	 */
+	public static function update_resource_meta( int $activation_id, array $meta ): bool {
+		global $wpdb;
+
+		$row = self::activation( $activation_id );
+
+		if ( ! $row ) {
+			return false;
+		}
+
+		$merged = array_merge( $row['meta'], $meta );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
+		return false !== $wpdb->update(
+			Install::tables()['activations'],
+			array(
+				'meta'       => $merged ? wp_json_encode( $merged ) : null,
+				'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+			),
+			array( 'id' => $activation_id )
+		);
+	}
+
+	/**
+	 * Live resources of a license: every live activation that is not a site, oldest first.
+	 *
+	 * @param int    $license_id License ID.
+	 * @param string $kind       Only this kind; empty for all.
+	 * @return array<int, array<string, mixed>> Rows with meta decoded.
+	 */
+	public static function resources( int $license_id, string $kind = '' ): array {
+		$rows = array_filter(
+			self::live_activations( $license_id ),
+			static fn( $row ) => 'site' !== $row['kind'] && ( '' === $kind || $kind === $row['kind'] )
+		);
+
+		return array_values( array_map( array( __CLASS__, 'decode_meta' ), $rows ) );
+	}
+
+	/**
+	 * One activation row of any kind, live or closed.
+	 *
+	 * @param int $activation_id Activation ID.
+	 * @return array<string, mixed>|null Row with meta decoded.
+	 */
+	public static function activation( int $activation_id ): ?array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id = %d', Install::tables()['activations'], $activation_id ), ARRAY_A );
+
+		return $row ? self::decode_meta( $row ) : null;
+	}
+
+	/**
+	 * The live activation of one kind and identifier, or null.
+	 *
+	 * @param int    $license_id License ID.
+	 * @param string $kind       Kind.
+	 * @param string $identifier Domain or resource identifier.
+	 * @return array<string, mixed>|null
+	 */
+	private static function live_row( int $license_id, string $kind, string $identifier ): ?array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d AND kind = %s AND live_domain = %s', Install::tables()['activations'], $license_id, $kind, $identifier ), ARRAY_A );
+
+		return $row ? $row : null;
+	}
+
+	/**
+	 * May this kind and identifier be stored as a resource?
+	 *
+	 * @param string $kind       Kind.
+	 * @param string $identifier Identifier.
+	 */
+	private static function valid_resource( string $kind, string $identifier ): bool {
+		return '' !== $kind && 'site' !== $kind && strlen( $kind ) <= 20 && 1 === preg_match( '/^[A-Za-z0-9._:-]{1,180}$/', $identifier );
+	}
+
+	/**
+	 * The checks every new activation passes, in the order the Medusa contract fixes: status,
+	 * expiry, already live, limit (counting every kind).
+	 *
+	 * @param array<string, mixed> $license         License.
+	 * @param bool                 $already_live    Is this domain or resource already live?
+	 * @param string               $already_message Message for the already-live outcome.
+	 * @return array{success:bool, message:string, code:string}|null A result to return, or null to go ahead.
+	 */
+	private static function gate( array $license, bool $already_live, string $already_message ): ?array {
+		if ( self::STATUS_ACTIVE !== $license['status'] ) {
+			return array(
+				'success' => false,
+				'code'    => 'license_not_active',
+				/* translators: %s: license status. Kept in English by default because API clients may compare it. */
+				'message' => sprintf( 'License is %s', $license['status'] ),
+			);
+		}
+
+		if ( self::is_past( $license['expires_at'] ) ) {
+			return array(
+				'success' => false,
+				'code'    => 'license_expired',
+				'message' => 'License has expired',
+			);
+		}
+
+		if ( $already_live ) {
+			return array(
+				'success' => true,
+				'code'    => 'already_active',
+				'message' => $already_message,
+			);
+		}
+
+		if ( $license['max_activations'] > 0 && count( self::live_activations( (int) $license['id'] ) ) >= $license['max_activations'] ) {
+			return array(
+				'success' => false,
+				'code'    => 'activation_limit',
+				'message' => sprintf( 'Maximum activations reached (%d)', $license['max_activations'] ),
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Decodes an activation row's meta JSON to an array (empty when none).
+	 *
+	 * @param array<string, mixed> $row Row.
+	 * @return array<string, mixed>
+	 */
+	private static function decode_meta( array $row ): array {
+		$decoded     = isset( $row['meta'] ) ? json_decode( (string) $row['meta'], true ) : null;
+		$row['meta'] = is_array( $decoded ) ? $decoded : array();
+
+		return $row;
 	}
 
 	/**

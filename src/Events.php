@@ -23,8 +23,8 @@ final class Events {
 		add_action( 'beltoft_licenses_license_created', array( __CLASS__, 'on_created' ) );
 		add_action( 'beltoft_licenses_status_changed', array( __CLASS__, 'on_status' ), 10, 2 );
 		add_action( 'beltoft_licenses_expiry_changed', array( __CLASS__, 'on_expiry' ), 10, 2 );
-		add_action( 'beltoft_licenses_activated', array( __CLASS__, 'on_activated' ), 10, 2 );
-		add_action( 'beltoft_licenses_deactivated', array( __CLASS__, 'on_deactivated' ), 10, 2 );
+		add_action( 'beltoft_licenses_activated', array( __CLASS__, 'on_activated' ), 10, 3 );
+		add_action( 'beltoft_licenses_deactivated', array( __CLASS__, 'on_deactivated' ), 10, 3 );
 	}
 
 	/**
@@ -107,10 +107,15 @@ final class Events {
 	/**
 	 * Action handler.
 	 *
-	 * @param array<string, mixed> $license License.
-	 * @param string               $domain  Site.
+	 * @param array<string, mixed> $license    License.
+	 * @param string               $domain     Site.
+	 * @param array<string, mixed> $activation The activation row. Resources write their own history.
 	 */
-	public static function on_activated( array $license, string $domain ): void {
+	public static function on_activated( array $license, string $domain, array $activation = array() ): void {
+		if ( isset( $activation['kind'] ) && 'site' !== $activation['kind'] ) {
+			return;
+		}
+
 		/* translators: %s: site address. */
 		self::add( (int) $license['id'], 'activated', sprintf( __( 'Activated on %s.', 'beltoft-licenses' ), $domain ) );
 	}
@@ -118,10 +123,15 @@ final class Events {
 	/**
 	 * Action handler.
 	 *
-	 * @param array<string, mixed> $license License.
-	 * @param string               $domain  Site.
+	 * @param array<string, mixed> $license    License.
+	 * @param string               $domain     Site.
+	 * @param array<string, mixed> $activation The activation row. Resources write their own history.
 	 */
-	public static function on_deactivated( array $license, string $domain ): void {
+	public static function on_deactivated( array $license, string $domain, array $activation = array() ): void {
+		if ( isset( $activation['kind'] ) && 'site' !== $activation['kind'] ) {
+			return;
+		}
+
 		/* translators: %s: site address. */
 		self::add( (int) $license['id'], 'deactivated', sprintf( __( 'Deactivated on %s.', 'beltoft-licenses' ), $domain ) );
 	}
