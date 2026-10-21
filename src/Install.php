@@ -42,9 +42,10 @@ final class Install {
 	}
 
 	/**
-	 * Deactivation hook. Licenses and settings stay; see uninstall.php.
+	 * Deactivation hook: stops the daily job. Licenses and settings stay; see uninstall.php.
 	 */
 	public static function deactivate(): void {
+		Lifecycle\Expiry::unschedule();
 	}
 
 	/**

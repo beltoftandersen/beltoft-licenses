@@ -27,7 +27,14 @@ final class Plugin {
 
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			add_action( 'admin_notices', array( __CLASS__, 'notice_woocommerce_missing' ) );
+			return;
 		}
+
+		Product::register();
+		Lifecycle\Orders::register();
+		Lifecycle\Expiry::register();
+		// Hooks itself only when WooCommerce Subscriptions is active.
+		Lifecycle\Subscriptions::register();
 	}
 
 	/**

@@ -122,6 +122,52 @@ final class Licenses {
 	}
 
 	/**
+	 * Licenses matching one column, oldest first.
+	 *
+	 * @param string     $column order_id, subscription_id, user_id or email.
+	 * @param int|string $value  Value.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function where( string $column, $value ): array {
+		global $wpdb;
+
+		if ( ! in_array( $column, array( 'order_id', 'subscription_id', 'user_id', 'email' ), true ) ) {
+			return array();
+		}
+
+		$table = Install::tables()['licenses'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE %i = %s ORDER BY id ASC', $table, $column, (string) $value ), ARRAY_A );
+
+		return array_map( array( __CLASS__, 'hydrate' ), is_array( $rows ) ? $rows : array() );
+	}
+
+	/**
+	 * A customer's existing license for a piece of software: by user ID when there is one,
+	 * otherwise by email. Used so a free plan is claimed once.
+	 *
+	 * @param string $slug    Software slug.
+	 * @param int    $user_id User ID, or 0 for a guest.
+	 * @param string $email   Email.
+	 * @return array<string, mixed>|null
+	 */
+	public static function find_for_customer( string $slug, int $user_id, string $email ): ?array {
+		$candidates = $user_id ? self::where( 'user_id', $user_id ) : array();
+
+		if ( ! $candidates && '' !== $email ) {
+			$candidates = self::where( 'email', sanitize_email( $email ) );
+		}
+
+		foreach ( $candidates as $license ) {
+			if ( $license['product_slug'] === $slug && self::STATUS_REVOKED !== $license['status'] ) {
+				return $license;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Updates columns of one license.
 	 *
 	 * @param int                  $id   License ID.
@@ -352,7 +398,7 @@ final class Licenses {
 	 * @param array<string, mixed> $row Row.
 	 * @return array<string, mixed>
 	 */
-	private static function hydrate( array $row ): array {
+	public static function hydrate( array $row ): array {
 		foreach ( array( 'id', 'max_activations' ) as $int ) {
 			$row[ $int ] = (int) $row[ $int ];
 		}

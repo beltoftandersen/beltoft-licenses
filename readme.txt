@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,10 @@ Sell software licenses with WooCommerce and WooCommerce Subscriptions: license k
 Beltoft Licenses turns WooCommerce products into licensed software.
 
 * License keys in a format you choose, with an optional prefix.
-* A site limit per license (0 for unlimited), with site activations.
+* A License tab on products: software slug, sites per license (variations can set their own, for site tiers; 0 is unlimited), current version and a free-plan option.
+* One license per unit when an order is paid; a full refund revokes it. A free plan is claimed once per customer.
+* Works with WooCommerce Subscriptions without taking over any of its work: billing, renewals, retries, switching and its emails stay with Subscriptions. Licenses follow the subscription: active while it is, a grace period while it is on hold (3 days by default), to the end of the paid period when cancelled, and the new site limit after a switch.
+* A daily job marks licenses past their expiry as expired.
 * A license API for your plugins and themes: validate, activate, deactivate and download, with short-lived signed download links.
 * Release files served from a protected folder, by PHP or by the web server (nginx X-Accel-Redirect, Apache X-Sendfile).
 * Extra API paths and an optional required header, so plugins already built against another license server can keep their URLs.
@@ -23,7 +26,7 @@ Beltoft Licenses turns WooCommerce products into licensed software.
 
 Everything is configured under Settings → Licenses. Nothing is tied to one site.
 
-Still to come in later versions: selling licenses from WooCommerce products, WooCommerce Subscriptions lifecycle, release uploads, and the My Account page.
+Still to come: release uploads, the My Account page and the admin license screens.
 
 = License API =
 
@@ -40,6 +43,7 @@ Base: `/wp-json/beltoft-licenses/v1/`
 
 1. Install and activate WooCommerce, then this plugin.
 2. Go to Settings → Licenses and review the defaults.
+3. On a product, open the License tab, tick "Licensed product" and enter its software slug (the plugin or theme folder name).
 
 == Frequently Asked Questions ==
 
@@ -52,6 +56,11 @@ By default in a protected folder inside uploads. On nginx, deny direct access to
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.2.0 =
+* License tab on products, licenses from paid orders, refunds, free plans.
+* WooCommerce Subscriptions: licenses follow the subscription, with a grace period after a failed payment.
+* Daily expiry job.
 
 = 0.1.0 =
 * First version: license storage, settings, and the license API.
