@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.6.0
+Stable tag: 0.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,13 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.7.0 =
+* Activation kinds and a resource API for plugins built on top: `add_resource`, `close_resource`, `update_resource_meta`, `resources` and `activation`. Site activations keep kind `site`; other kinds match `[a-z0-9_-]{1,20}`.
+* Action `beltoft_licenses_license_updated` after any license change.
+* Filter `beltoft_licenses_api_license` to keep licenses out of the API.
+* Display filters: `beltoft_licenses_resource_label` and `beltoft_licenses_account_show_key`.
+* Setting: check expiry every hour instead of daily.
 
 = 0.6.0 =
 * `wp beltoft-licenses import`: licenses, activations and releases from a JSON file, with a dry run and delta imports.
