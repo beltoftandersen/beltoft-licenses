@@ -1,0 +1,231 @@
+# Copyright (C) 2026 beltoft.net
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Beltoft Licenses for WooCommerce 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/beltoft-licenses\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-10-21T11:05:39+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: beltoft-licenses\n"
+
+#. Plugin Name of the plugin
+#: beltoft-licenses.php
+msgid "Beltoft Licenses for WooCommerce"
+msgstr ""
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: beltoft-licenses.php
+msgid "https://beltoft.net/"
+msgstr ""
+
+#. Description of the plugin
+#: beltoft-licenses.php
+msgid "Sell software licenses with WooCommerce and WooCommerce Subscriptions: license keys, site activations, a license API for your plugins, and update downloads."
+msgstr ""
+
+#. Author of the plugin
+#: beltoft-licenses.php
+msgid "beltoft.net"
+msgstr ""
+
+#: src/Plugin.php:43
+msgid "Beltoft Licenses needs WooCommerce to sell licenses. The license API keeps answering, but nothing new can be sold until WooCommerce is active."
+msgstr ""
+
+#: src/Settings.php:32
+msgid "Key prefix"
+msgstr ""
+
+#: src/Settings.php:33
+msgid "Optional. Letters and digits, put in front of every new key with a dash, for example ACME gives ACME-1A2B-…."
+msgstr ""
+
+#: src/Settings.php:39
+msgid "Key format"
+msgstr ""
+
+#: src/Settings.php:40
+msgid "{Xn} is n random uppercase hexadecimal characters. Dashes and letters are kept as written."
+msgstr ""
+
+#: src/Settings.php:47
+msgid "Extra API paths"
+msgstr ""
+
+#: src/Settings.php:48
+msgid "One per line. Use {route} for validate, activate, deactivate, download and download-file, or map one path with \"=> route\". Add \"auth\" at the end of a line to require the header below on that path. Example: /store/licenses/{route} auth"
+msgstr ""
+
+#: src/Settings.php:54
+msgid "Required header name"
+msgstr ""
+
+#: src/Settings.php:55
+msgid "Only used on paths marked \"auth\". Leave empty to require nothing."
+msgstr ""
+
+#: src/Settings.php:61
+msgid "Accepted header values"
+msgstr ""
+
+#: src/Settings.php:62
+msgid "One per line."
+msgstr ""
+
+#: src/Settings.php:69
+msgid "Standard"
+msgstr ""
+
+#: src/Settings.php:70
+msgid "Medusa compatible"
+msgstr ""
+
+#: src/Settings.php:72
+msgid "Response format"
+msgstr ""
+
+#: src/Settings.php:73
+msgid "Medusa compatible answers exactly as a Medusa license backend does, for plugins already built against one."
+msgstr ""
+
+#: src/Settings.php:80
+msgid "Whenever the license is active"
+msgstr ""
+
+#: src/Settings.php:81
+msgid "Only when a newer version than the one sent exists"
+msgstr ""
+
+#: src/Settings.php:83
+msgid "Report updates available"
+msgstr ""
+
+#: src/Settings.php:90
+msgid "Rate limit: requests"
+msgstr ""
+
+#: src/Settings.php:91
+msgid "Per IP address and path. 0 turns the limit off."
+msgstr ""
+
+#: src/Settings.php:98
+msgid "Rate limit: window in seconds"
+msgstr ""
+
+#: src/Settings.php:105
+msgid "Download link lifetime in seconds"
+msgstr ""
+
+#: src/Settings.php:113
+msgid "Grace period after a failed payment (days)"
+msgstr ""
+
+#: src/Settings.php:114
+msgid "The license keeps working this long while the subscription is on hold."
+msgstr ""
+
+#: src/Settings.php:120
+msgid "Revoke licenses when their order is fully refunded"
+msgstr ""
+
+#: src/Settings.php:127
+msgid "Release storage directory"
+msgstr ""
+
+#: src/Settings.php:128
+msgid "Absolute path, preferably outside the web root. Empty uses a protected folder in uploads."
+msgstr ""
+
+#: src/Settings.php:135
+msgid "PHP streams the file"
+msgstr ""
+
+#: src/Settings.php:136
+msgid "nginx X-Accel-Redirect"
+msgstr ""
+
+#: src/Settings.php:137
+msgid "Apache X-Sendfile"
+msgstr ""
+
+#: src/Settings.php:139
+msgid "File delivery"
+msgstr ""
+
+#: src/Settings.php:145
+msgid "X-Accel internal location"
+msgstr ""
+
+#: src/Settings.php:146
+msgid "The nginx \"internal\" location that maps to the storage directory, for example /protected-releases/."
+msgstr ""
+
+#: src/Settings.php:152
+msgid "My Account downloads need at least one activated site"
+msgstr ""
+
+#: src/Settings.php:159
+msgid "My Account endpoint"
+msgstr ""
+
+#: src/Settings.php:164
+#: src/Settings.php:279
+#: src/Settings.php:280
+#: src/Settings.php:310
+msgid "Licenses"
+msgstr ""
+
+#: src/Settings.php:165
+msgid "My Account menu label"
+msgstr ""
+
+#: src/Settings.php:172
+msgid "Treat www.example.com and example.com as the same site"
+msgstr ""
+
+#: src/Settings.php:178
+msgid "Ignore one trailing slash in site addresses"
+msgstr ""
+
+#: src/Settings.php:184
+msgid "Delete all licenses, releases and settings when the plugin is deleted"
+msgstr ""
+
+#: src/Settings.php:196
+msgid "License keys"
+msgstr ""
+
+#: src/Settings.php:197
+msgid "License API"
+msgstr ""
+
+#: src/Settings.php:198
+msgid "Subscriptions"
+msgstr ""
+
+#: src/Settings.php:199
+msgid "Downloads"
+msgstr ""
+
+#: src/Settings.php:200
+msgid "My Account"
+msgstr ""
+
+#: src/Settings.php:201
+msgid "Advanced"
+msgstr ""
+
+#: src/Settings.php:296
+msgid "Settings"
+msgstr ""
+
+#: src/Settings.php:313
+msgid "License API base:"
+msgstr ""

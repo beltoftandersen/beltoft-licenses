@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/validate",
+    "body": {
+      "license_key": "BLTFT-AAAA-0000-1111-2222",
+      "plugin_slug": "other-plugin"
+    }
+  },
+  "status": 403,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "valid": false,
+    "status": "plugin_mismatch",
+    "updates_available": false,
+    "message": "This license is for woocommerce-subscriptions, not other-plugin."
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

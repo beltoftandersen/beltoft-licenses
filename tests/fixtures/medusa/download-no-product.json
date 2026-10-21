@@ -1,0 +1,9 @@
+{
+  "status": 404,
+  "body": {
+    "success": false,
+    "message": "Digital product not found"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": ""
+}

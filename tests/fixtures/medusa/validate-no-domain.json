@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/validate",
+    "body": {
+      "license_key": "BLTFT-AAAA-0000-1111-2222"
+    }
+  },
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "valid": true,
+    "license_active": true,
+    "status": "active",
+    "updates_available": true,
+    "domain_activated": false,
+    "current_version": "9.3.0",
+    "expires_at": null,
+    "max_activations": 2
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

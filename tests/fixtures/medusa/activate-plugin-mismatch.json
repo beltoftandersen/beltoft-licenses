@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/activate",
+    "body": {
+      "license_key": "BLTFT-AAAA-0000-1111-2222",
+      "domain": "staging.beltoft.net",
+      "plugin_slug": "other-plugin"
+    }
+  },
+  "status": 403,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "success": false,
+    "message": "This license is for woocommerce-subscriptions, not other-plugin."
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

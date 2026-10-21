@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/store/plugin-versions?slug=woocommerce-subscriptions",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "slug": "woocommerce-subscriptions",
+    "version": "9.3.0"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

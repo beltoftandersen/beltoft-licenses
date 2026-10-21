@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "success": false,
+    "message": "License is revoked"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": "message is \"License is {status}\" for revoked/suspended/expired status"
+}

@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "success": false,
+    "message": "License has expired"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": "status active but expires_at in the past"
+}

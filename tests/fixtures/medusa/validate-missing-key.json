@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/validate",
+    "body": {}
+  },
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "message": "license_key is required"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

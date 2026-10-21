@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/validate",
+    "body": {
+      "license_key": "BLTFT-0000-0000-0000-0000"
+    }
+  },
+  "status": 200,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "valid": false,
+    "status": "not_found",
+    "updates_available": false
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

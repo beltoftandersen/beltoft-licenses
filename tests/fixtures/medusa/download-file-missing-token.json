@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/store/licenses/download-file",
+    "body": null
+  },
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "success": false,
+    "message": "token is required"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

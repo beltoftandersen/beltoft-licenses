@@ -1,0 +1,9 @@
+{
+  "status": 403,
+  "body": {
+    "success": false,
+    "message": "License has expired. Renew your subscription to download updates."
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": ""
+}

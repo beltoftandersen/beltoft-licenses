@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "success": true,
+    "message": "Deactivation successful"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": ""
+}

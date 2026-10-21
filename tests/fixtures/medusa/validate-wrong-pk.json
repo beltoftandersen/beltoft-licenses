@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/validate",
+    "headers": {
+      "x-publishable-api-key": "pk_wrong"
+    }
+  },
+  "status": 400,
+  "body": {
+    "type": "not_allowed",
+    "message": "A valid publishable key is required to proceed with the request"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

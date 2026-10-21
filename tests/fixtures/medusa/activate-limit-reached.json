@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "success": false,
+    "message": "Maximum activations reached (1)"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": "number is max_activations; 0 = unlimited never hits this"
+}

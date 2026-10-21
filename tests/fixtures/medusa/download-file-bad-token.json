@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/store/licenses/download-file?token=abc.def",
+    "body": null
+  },
+  "status": 401,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "success": false,
+    "message": "Invalid or expired download token"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

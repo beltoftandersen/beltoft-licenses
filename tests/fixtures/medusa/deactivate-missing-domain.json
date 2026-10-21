@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/deactivate",
+    "body": {
+      "license_key": "BLTFT-AAAA-0000-1111-2222"
+    }
+  },
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "message": "license_key and domain are required"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

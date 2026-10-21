@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "body": {
+    "valid": true,
+    "license_active": false,
+    "status": "expired",
+    "updates_available": false,
+    "domain_activated": false,
+    "expires_at": "{ISO8601}",
+    "max_activations": 1
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": "current_version is ABSENT (undefined) when the license is not active"
+}

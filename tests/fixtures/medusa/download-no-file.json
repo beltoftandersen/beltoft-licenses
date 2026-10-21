@@ -1,0 +1,9 @@
+{
+  "status": 404,
+  "body": {
+    "success": false,
+    "message": "No download available for current version"
+  },
+  "source": "derived from Medusa handler code (not safe to trigger live)",
+  "note": ""
+}

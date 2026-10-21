@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/deactivate",
+    "body": {
+      "license_key": "BLTFT-0000-0000-0000-0000",
+      "domain": "example.com"
+    }
+  },
+  "status": 404,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "success": false,
+    "message": "License not found"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}

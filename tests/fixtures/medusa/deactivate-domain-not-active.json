@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/store/licenses/deactivate",
+    "body": {
+      "license_key": "BLTFT-AAAA-0000-1111-2222",
+      "domain": "never-activated.example"
+    }
+  },
+  "status": 400,
+  "content_type": "application/json; charset=utf-8",
+  "body": {
+    "success": false,
+    "message": "No active activation found for this domain"
+  },
+  "source": "recorded live from Medusa 2026-10-21"
+}
