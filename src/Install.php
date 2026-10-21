@@ -10,13 +10,22 @@ namespace BeltoftLicenses;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Creates and upgrades the three tables, and the per-install token secret.
+ * Creates and upgrades the four tables, and the per-install token secret.
  */
 final class Install {
 
 	public const DB_VERSION        = '3';
 	public const OPTION_DB_VERSION = 'beltoft_licenses_db_version';
 	public const OPTION_SECRET     = 'beltoft_licenses_token_secret';
+
+	/**
+	 * The unique key `live` of schema 3: column => prefix length.
+	 */
+	private const LIVE_KEY = array(
+		'license_id'  => null,
+		'kind'        => null,
+		'live_domain' => '191',
+	);
 
 	/**
 	 * Table names, prefixed for this install.
@@ -55,12 +64,7 @@ final class Install {
 	 * Upgrade in place when the stored schema version is behind.
 	 */
 	public static function maybe_upgrade(): void {
-		$stored = get_option( self::OPTION_DB_VERSION );
-
-		if ( self::DB_VERSION !== $stored ) {
-			if ( $stored && version_compare( (string) $stored, '3', '<' ) ) {
-				self::upgrade_to_3();
-			}
+		if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
 			self::create_tables();
 			self::ensure_secret();
 			// An update never runs the activation hook: rules for new endpoints come from here.
@@ -69,21 +73,41 @@ final class Install {
 	}
 
 	/**
-	 * Schema 3: the unique key `live` gains the activation kind. dbDelta cannot change an
-	 * existing key, so the old one is dropped here; create_tables() then adds the new columns
-	 * (existing rows get kind 'site' from the default) and the new key.
+	 * The unique key `live` on the activations table: each column with its prefix length, in
+	 * key order. Empty when there is no such key (or no table yet).
+	 *
+	 * @return array<string, string|null>
 	 */
-	private static function upgrade_to_3(): void {
+	public static function live_key(): array {
 		global $wpdb;
 
-		$table = self::tables()['activations'];
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- schema change on our own table.
-		$columns = $wpdb->get_col( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', $table, 'live' ), 4 );
+		$suppress = $wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema check on our own table.
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s', self::tables()['activations'], 'live' ), ARRAY_A );
+		$wpdb->suppress_errors( $suppress );
 
-		if ( $columns && ! in_array( 'kind', $columns, true ) ) {
-			$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX live', $table ) );
+		$key = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$key[ $row['Column_name'] ] = null === $row['Sub_part'] ? null : (string) $row['Sub_part'];
 		}
-		// phpcs:enable
+
+		return $key;
+	}
+
+	/**
+	 * Drops the unique key `live` when it is not the current one (schema 2 had no `kind` in it).
+	 * dbDelta cannot change an existing key, so create_tables() calls this first and dbDelta
+	 * then adds the current key.
+	 */
+	private static function drop_stale_live_key(): void {
+		global $wpdb;
+
+		$key = self::live_key();
+
+		if ( $key && self::LIVE_KEY !== $key ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema change on our own table.
+			$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX live', self::tables()['activations'] ) );
+		}
 	}
 
 	/**
@@ -93,6 +117,9 @@ final class Install {
 	 * deactivated. The unique key on (license_id, kind, live_domain) therefore allows at most one
 	 * live row per name and kind while keeping the history, without needing generated columns.
 	 * `kind` is 'site' for a licensed site; plugins built on this one store other kinds.
+	 *
+	 * Used on activation and on upgrade alike. The schema version is stored only once that key
+	 * is in place, so a failed attempt is tried again on the next request.
 	 */
 	public static function create_tables(): void {
 		global $wpdb;
@@ -132,6 +159,9 @@ final class Install {
 			) $collate;"
 		);
 
+		// Errors here would be printed during activation; a failure shows as a missing key below.
+		$suppress = $wpdb->suppress_errors( true );
+		self::drop_stale_live_key();
 		dbDelta(
 			"CREATE TABLE {$t['activations']} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -144,11 +174,12 @@ final class Install {
 				meta longtext NULL,
 				updated_at datetime NULL DEFAULT NULL,
 				PRIMARY KEY  (id),
-				UNIQUE KEY live (license_id,kind,live_domain(180)),
+				UNIQUE KEY live (license_id,kind,live_domain(191)),
 				KEY license_id (license_id),
 				KEY domain (domain(191))
 			) $collate;"
 		);
+		$wpdb->suppress_errors( $suppress );
 
 		dbDelta(
 			"CREATE TABLE {$t['releases']} (
@@ -181,7 +212,9 @@ final class Install {
 			) $collate;"
 		);
 
-		update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
+		if ( self::LIVE_KEY === self::live_key() ) {
+			update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
+		}
 	}
 
 	/**
