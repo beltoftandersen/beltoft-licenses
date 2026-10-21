@@ -32,7 +32,7 @@ final class Controller {
 			return Responses::error( 'missing_license_key', array(), 'validate' );
 		}
 
-		$license = Licenses::find_by_key( $key );
+		$license = self::lookup( $key );
 
 		if ( ! $license ) {
 			return new \WP_REST_Response(
@@ -241,6 +241,28 @@ final class Controller {
 	}
 
 	/**
+	 * The license for a key, as the public API sees it.
+	 *
+	 * @param string $key Normalised license key.
+	 * @return array<string, mixed>|null Null answers exactly as for an unknown key.
+	 */
+	private static function lookup( string $key ): ?array {
+		$license = Licenses::find_by_key( $key );
+
+		/**
+		 * Filters the license the public API finds for a key. Return null to hide it: every
+		 * route then answers exactly as for an unknown key. For licenses that are not
+		 * software licenses, such as service accounts, whose keys must not work here.
+		 *
+		 * @param array<string, mixed>|null $license License row, or null when none matches.
+		 * @param string                    $key     Normalised license key.
+		 */
+		$license = apply_filters( 'beltoft_licenses_api_license', $license, $key );
+
+		return is_array( $license ) ? $license : null;
+	}
+
+	/**
 	 * Shared start of activate, deactivate and download: both fields present, the license
 	 * exists, and (where asked) it belongs to the requesting software.
 	 *
@@ -257,7 +279,7 @@ final class Controller {
 			return array( null, '', Responses::error( 'missing_key_domain', array(), $context ) );
 		}
 
-		$license = Licenses::find_by_key( $key );
+		$license = self::lookup( $key );
 
 		if ( ! $license ) {
 			return array( null, '', Responses::error( 'not_found', array(), $context ) );
