@@ -40,8 +40,10 @@ final class Plugin {
 		Releases\GitHub::register();
 		Account\Endpoint::register();
 		Account\OrderLicenses::register();
+		Account\SubscriptionEmails::register();
 		Admin\Screen::register();
 		Admin\OrderBox::register();
+		Cli\Commands::register();
 	}
 
 	/**

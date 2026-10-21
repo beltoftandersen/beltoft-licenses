@@ -6,7 +6,7 @@ See [readme.txt](readme.txt) for the user documentation and the license API.
 
 ## Status
 
-`0.4.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the daily expiry job, and releases (upload screen and GitHub webhook). My Account → Licenses (0.4.0). The admin license screens are in progress.
+`0.6.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the daily expiry job, releases (upload screen and GitHub webhook), My Account → Licenses, the admin license screens, and `wp beltoft-licenses import`.
 
 ## Development
 

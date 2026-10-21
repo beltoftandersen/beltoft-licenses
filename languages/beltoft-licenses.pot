@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Beltoft Licenses for WooCommerce 0.5.0\n"
+"Project-Id-Version: Beltoft Licenses for WooCommerce 0.6.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/beltoft-licenses\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-21T12:39:57+00:00\n"
+"POT-Creation-Date: 2026-10-21T12:58:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: beltoft-licenses\n"
@@ -37,6 +37,8 @@ msgstr ""
 
 #: src/Account/Endpoint.php:77
 #: src/Account/Endpoint.php:88
+#: src/Account/SubscriptionEmails.php:93
+#: src/Account/SubscriptionEmails.php:104
 #: src/Admin/OrderBox.php:44
 #: src/Admin/Screen.php:56
 #: src/Admin/Screen.php:57
@@ -77,6 +79,16 @@ msgstr ""
 #: src/Account/OrderLicenses.php:106
 #: src/Settings.php:238
 msgid "License keys"
+msgstr ""
+
+#. translators: %s: URL of the My Account licenses page.
+#: src/Account/SubscriptionEmails.php:100
+#, php-format
+msgid "Manage your licenses: %s"
+msgstr ""
+
+#: src/Account/SubscriptionEmails.php:115
+msgid "Manage your licenses"
 msgstr ""
 
 #: src/Account/View.php:77
@@ -459,6 +471,18 @@ msgstr ""
 msgid "unlimited"
 msgstr ""
 
+#. translators: %s: site address.
+#: src/Import.php:456
+#, php-format
+msgid "Imported: active on %s."
+msgstr ""
+
+#. translators: %s: site address.
+#: src/Import.php:476
+#, php-format
+msgid "Imported: deactivated on %s."
+msgstr ""
+
 #. translators: 1: license key, 2: software slug.
 #: src/Lifecycle/Orders.php:90
 #: src/Lifecycle/Subscriptions.php:152
@@ -478,7 +502,7 @@ msgstr ""
 msgid "License %s revoked: the order was fully refunded."
 msgstr ""
 
-#: src/Plugin.php:57
+#: src/Plugin.php:59
 msgid "Beltoft Licenses needs WooCommerce to sell licenses. The license API keeps answering, but nothing new can be sold until WooCommerce is active."
 msgstr ""
 
@@ -614,10 +638,6 @@ msgstr ""
 msgid "current"
 msgstr ""
 
-#: src/Releases/AdminScreen.php:171
-msgid "Upload"
-msgstr ""
-
 #: src/Releases/AdminScreen.php:175
 msgid "Make current"
 msgstr ""
@@ -632,31 +652,39 @@ msgstr ""
 msgid "Delete version %s and its file?"
 msgstr ""
 
-#: src/Releases/AdminScreen.php:224
+#: src/Releases/AdminScreen.php:222
+msgid "Import"
+msgstr ""
+
+#: src/Releases/AdminScreen.php:225
+msgid "Upload"
+msgstr ""
+
+#: src/Releases/AdminScreen.php:238
 msgid "Recent GitHub releases"
 msgstr ""
 
-#: src/Releases/AdminScreen.php:236
+#: src/Releases/AdminScreen.php:250
 msgid "You are not allowed to publish releases."
 msgstr ""
 
-#: src/Releases/AdminScreen.php:250
+#: src/Releases/AdminScreen.php:264
 msgid "Choose a zip file to upload."
 msgstr ""
 
-#: src/Releases/AdminScreen.php:298
+#: src/Releases/AdminScreen.php:312
 msgid "The upload failed."
 msgstr ""
 
-#: src/Releases/AdminScreen.php:309
+#: src/Releases/AdminScreen.php:323
 msgid "You are not allowed to change releases."
 msgstr ""
 
-#: src/Releases/AdminScreen.php:322
+#: src/Releases/AdminScreen.php:336
 msgid "That version could not be made current: its product or release is missing."
 msgstr ""
 
-#: src/Releases/AdminScreen.php:329
+#: src/Releases/AdminScreen.php:343
 msgid "Nothing was changed."
 msgstr ""
 

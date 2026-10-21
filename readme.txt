@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.5.0
+Stable tag: 0.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -61,11 +61,33 @@ By default in a protected folder inside uploads. On nginx, deny direct access to
 
 Under Settings → Licenses → GitHub releases, list each repository as `owner/repository => software-slug` and set a secret. On GitHub, add a webhook to the repository (or organisation) with the URL shown there, content type `application/json`, the same secret, and the "Releases" event. Attach a built `.zip` to the release, or the source zip is used.
 
+= How do I import licenses from another system? =
+
+Write a JSON file and run `wp beltoft-licenses import <file.json> --dry-run`, then again without `--dry-run`. The whole file is checked first: if anything is wrong, nothing is written. Licenses are matched by `external_id`, then by key, so running a newer export again applies only what changed.
+
+The file is `{"licenses": [...], "releases": [...]}`; both lists are optional. Each license has:
+
+* `license_key` (required, kept as it is), `product_slug` (required, the software slug of a product) and `email` (required; a user with that email sees the license in their account);
+* `external_id`: its ID in the old system, unique;
+* `status`: active, expired, revoked or suspended (default active);
+* `max_activations`: 0 for unlimited (default 1);
+* `expires_at`, `created_at`: ISO 8601 dates, or null;
+* `subscription_id`, `order_id`: an existing subscription or order;
+* `activations`: a list of `{"domain", "activated_at", "deactivated_at"}`. A site without `deactivated_at` is live. Sites the file does not list are left as they are.
+
+Each release has `product_slug`, `version`, `file` (a zip, relative to the JSON file), `changelog`, and `current` (true to serve it to licensed sites).
+
+Imported sites are not checked against the site limit. Plugins built on this one can call `BeltoftLicenses\Import::is_running()` to skip their own side effects while an import writes.
+
 = Does deleting the plugin delete licenses? =
 
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.6.0 =
+* `wp beltoft-licenses import`: licenses, activations and releases from a JSON file, with a dry run and delta imports.
+* WooCommerce Subscriptions' renewal and expiry notices list the subscription's license keys and sites.
 
 = 0.5.0 =
 * WooCommerce → Licenses: search, filters, bulk revoke, suspend and reactivate, CSV export, a screen per license (status, expiry, site limit, sites, history) and manual issue.

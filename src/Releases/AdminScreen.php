@@ -168,7 +168,7 @@ final class AdminScreen {
 			echo '<tr><td><strong>' . esc_html( $version ) . '</strong>' . ( $is_current ? ' <span class="dashicons dashicons-yes" title="' . esc_attr__( 'Current', 'beltoft-licenses' ) . '"></span> ' . esc_html__( 'current', 'beltoft-licenses' ) : '' ) . '</td>';
 			echo '<td>' . esc_html( get_date_from_gmt( (string) $release['published_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ) . '</td>';
 			echo '<td>' . esc_html( size_format( (int) $release['filesize'] ) ) . '</td>';
-			echo '<td>' . esc_html( 'github' === $release['source'] ? 'GitHub' : __( 'Upload', 'beltoft-licenses' ) ) . '</td>';
+			echo '<td>' . esc_html( self::source_label( (string) $release['source'] ) ) . '</td>';
 			echo '<td>' . esc_html( wp_trim_words( (string) $release['changelog'], 20 ) ) . '</td><td>';
 
 			if ( ! $is_current ) {
@@ -209,6 +209,20 @@ final class AdminScreen {
 			esc_html( $label )
 		);
 		echo '</form>';
+	}
+
+	/**
+	 * Where a release came from, in words.
+	 *
+	 * @param string $source upload, github or import.
+	 */
+	private static function source_label( string $source ): string {
+		$labels = array(
+			'github' => 'GitHub',
+			'import' => __( 'Import', 'beltoft-licenses' ),
+		);
+
+		return $labels[ $source ] ?? __( 'Upload', 'beltoft-licenses' );
 	}
 
 	/**
