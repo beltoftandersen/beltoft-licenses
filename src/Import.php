@@ -425,8 +425,9 @@ final class Import {
 
 		$id    = (int) $license['id'];
 		$table = Install::tables()['activations'];
+		// Only sites: other kinds of activation belong to plugins built on this one.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
-		$rows  = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d', $table, $id ), ARRAY_A );
+		$rows  = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE license_id = %d AND kind = %s', $table, $id, 'site' ), ARRAY_A );
 		$known = array();
 		$live  = array();
 

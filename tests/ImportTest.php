@@ -130,6 +130,31 @@ class ImportTest extends TestCase {
 		$this->assertSame( 1, Licenses::query()[1], 'still one license' );
 	}
 
+	public function test_import_never_reads_or_closes_other_kinds_of_activation(): void {
+		global $wpdb;
+
+		Import::run( array( 'licenses' => array( $this->entry( array( 'activations' => array() ) ) ) ), false );
+		$license = Licenses::find_by_key( 'BLTFT-AAAA-0000-1111-2222' );
+		$wpdb->insert(
+			\BeltoftLicenses\Install::tables()['activations'],
+			array(
+				'license_id'   => $license['id'],
+				'kind'         => 'vm',
+				'domain'       => 'x',
+				'live_domain'  => 'x',
+				'activated_at' => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+
+		Import::run( array( 'licenses' => array( $this->entry( array( 'activations' => array( array( 'domain' => 'x' ) ) ) ) ) ), false );
+		$this->assertSame( array( 'x' ), array_column( Licenses::live_activations( $license['id'], 'site' ), 'domain' ), 'a live site x is added next to the vm' );
+		$this->assertCount( 1, Licenses::live_activations( $license['id'], 'vm' ) );
+
+		Import::run( array( 'licenses' => array( $this->entry( array( 'activations' => array( array( 'domain' => 'x', 'deactivated_at' => '2025-01-01T00:00:00Z' ) ) ) ) ) ), false );
+		$this->assertSame( array(), Licenses::live_activations( $license['id'], 'site' ), 'the site is closed' );
+		$this->assertCount( 1, Licenses::live_activations( $license['id'], 'vm' ), 'the vm stays live' );
+	}
+
 	public function test_existing_license_without_external_id_is_matched_by_key_and_tagged(): void {
 		$local = $this->license( array( 'license_key' => 'BLTFT-AAAA-0000-1111-2222' ) );
 
