@@ -21,6 +21,6 @@ foreach ( array( 'beltoft_licenses', 'beltoft_licenses_activations', 'beltoft_li
 	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . $beltoft_licenses_table ) );
 }
 
-foreach ( array( 'beltoft_licenses_settings', 'beltoft_licenses_db_version', 'beltoft_licenses_token_secret', 'beltoft_licenses_storage_suffix', 'beltoft_licenses_flush_rewrites', 'beltoft_licenses_github_log' ) as $beltoft_licenses_option ) {
+foreach ( array( 'beltoft_licenses_settings', 'beltoft_licenses_db_version', 'beltoft_licenses_token_secret', 'beltoft_licenses_storage_suffix', 'beltoft_licenses_flush_rewrites', 'beltoft_licenses_github_log', 'beltoft_licenses_update_notified' ) as $beltoft_licenses_option ) {
 	delete_option( $beltoft_licenses_option );
 }

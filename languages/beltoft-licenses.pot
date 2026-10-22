@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-22T20:30:01+00:00\n"
+"POT-Creation-Date: 2026-10-22T20:35:30+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: beltoft-licenses\n"
@@ -496,8 +496,14 @@ msgstr ""
 msgid "A new version is available"
 msgstr ""
 
+#. translators: 1: software slug and version, 2: error message.
+#: src/Emails/UpdateNotifier.php:129
+#, php-format
+msgid "New version email failed for [%1$s %2$s]: %3$s"
+msgstr ""
+
 #. translators: %s: software slug and version.
-#: src/Emails/UpdateNotifier.php:200
+#: src/Emails/UpdateNotifier.php:231
 #, php-format
 msgid "Customer emailed: new version %s."
 msgstr ""

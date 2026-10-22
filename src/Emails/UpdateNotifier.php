@@ -67,6 +67,17 @@ final class UpdateNotifier {
 			return;
 		}
 
+		/**
+		 * Whether to announce a pre-release (a version with a suffix after a hyphen).
+		 *
+		 * @param bool   $announce Default false.
+		 * @param string $slug     Software slug.
+		 * @param string $version  Version.
+		 */
+		if ( self::is_prerelease( $version ) && ! apply_filters( 'beltoft_licenses_announce_prerelease', false, $slug, $version ) ) {
+			return;
+		}
+
 		$done = get_option( self::OPTION, array() );
 		$done = is_array( $done ) ? $done : array();
 		$key  = $slug . '|' . $version;
@@ -103,13 +114,33 @@ final class UpdateNotifier {
 
 		$addresses = self::addresses( $slug, $after );
 
-		foreach ( $addresses as $address ) {
-			self::notify( $email, $address, $slug, $release );
-		}
-
+		// Queue the next batch first: Action Scheduler does not retry, so nothing below may break the chain.
 		if ( count( $addresses ) >= self::BATCH && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action( self::HOOK, array( $slug, $version, (string) end( $addresses ) ), self::GROUP );
 		}
+
+		foreach ( $addresses as $address ) {
+			try {
+				self::notify( $email, $address, $slug, $release );
+			} catch ( \Throwable $e ) {
+				foreach ( Licenses::where( 'email', $address ) as $license ) {
+					if ( $license['product_slug'] === $slug ) {
+						/* translators: 1: software slug and version, 2: error message. */
+						Events::add( (int) $license['id'], self::EVENT . '_failed', sprintf( __( 'New version email failed for [%1$s %2$s]: %3$s', 'beltoft-licenses' ), $slug, $version, $e->getMessage() ) );
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * A version with a suffix after a hyphen (2.5.0-beta, 2.4.1-test) is a pre-release.
+	 *
+	 * @param string $version Version.
+	 */
+	public static function is_prerelease( string $version ): bool {
+		return false !== strpos( $version, '-' );
 	}
 
 	/**

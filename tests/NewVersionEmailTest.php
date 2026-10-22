@@ -294,4 +294,61 @@ class NewVersionEmailTest extends TestCase {
 		$this->assertStringContainsString( wc_get_account_endpoint_url( 'licenses' ), $plain );
 		$this->assertStringNotContainsString( '<i>', $plain );
 	}
+
+	public function test_a_throwing_address_does_not_stop_the_others_or_the_chain(): void {
+		for ( $i = 0; $i < UpdateNotifier::BATCH + 2; $i++ ) {
+			$this->lic( array( 'email' => sprintf( 'c%03d@example.org', $i ) ) );
+		}
+		add_filter(
+			'beltoft_licenses_send_update_email',
+			static function ( $send, $license ) {
+				if ( 'c003@example.org' === $license['email'] ) {
+					throw new \RuntimeException( 'boom' );
+				}
+				return $send;
+			},
+			10,
+			2
+		);
+
+		$this->publish( '1.1.0' );
+		$id     = $this->pending()[0];
+		$action = \ActionScheduler::store()->fetch_action( $id );
+		\ActionScheduler::store()->mark_complete( $id );
+		$sent   = array();
+		$filter = static function ( $short, $atts ) use ( &$sent ) {
+			$sent[] = $atts['to'];
+			return true;
+		};
+		add_filter( 'pre_wp_mail', $filter, 10, 2 );
+		do_action_ref_array( $action->get_hook(), $action->get_args() );
+		remove_filter( 'pre_wp_mail', $filter, 10 );
+
+		$this->assertCount( UpdateNotifier::BATCH - 1, $sent );
+		$this->assertCount( 1, $this->pending(), 'the follow-on is queued' );
+		$failed = Licenses::where( 'email', 'c003@example.org' );
+		$types  = array_column( Events::for_license( (int) $failed[0]['id'] ), 'type' );
+		$this->assertContains( 'email_new_version_failed', $types );
+	}
+
+	public function test_prereleases_are_not_announced_but_the_stable_release_is(): void {
+		$this->lic();
+
+		foreach ( array( '2.5.0-beta', '2.5.0-rc1', '2.5.0-test' ) as $version ) {
+			$this->publish( $version );
+			$this->assertSame( array(), $this->pending(), $version );
+		}
+
+		$this->publish( '2.5.0' );
+		$this->assertCount( 1, $this->pending() );
+	}
+
+	public function test_filter_can_announce_a_prerelease(): void {
+		$this->lic();
+		add_filter( 'beltoft_licenses_announce_prerelease', '__return_true' );
+
+		$this->publish( '2.5.0-beta' );
+
+		$this->assertCount( 1, $this->pending() );
+	}
 }

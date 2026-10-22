@@ -84,7 +84,7 @@ Only if "Delete all licenses, releases and settings when the plugin is deleted" 
 == Changelog ==
 
 = 0.7.2 =
-* Customer email "New version available": when a newer release becomes the current version, every customer with an active license for that software gets one email with the new version, a short changelog and a link to My Account → Licenses to download it. Sent in the background in batches through Action Scheduler, once per release, never for revoked, suspended or expired licenses, never for a rollback and never during an import. Editable under WooCommerce → Settings → Emails.
+* Customer email "New version available": when a newer release becomes the current version, every customer with an active license for that software gets one email with the new version, a short changelog and a link to My Account → Licenses to download it. Sent in the background in batches through Action Scheduler, once per release, never for revoked, suspended or expired licenses, never for a rollback and never during an import. Editable under WooCommerce → Settings → Emails, where you can also switch it off. Pre-releases (a version with a suffix such as 2.5.0-beta) are not announced.
 * Action `beltoft_licenses_version_current` and filter `beltoft_licenses_send_update_email`.
 
 = 0.7.1 =
