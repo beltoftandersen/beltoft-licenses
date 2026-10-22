@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.7.0
+Stable tag: 0.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,15 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.7.1 =
+* The first order email now has the license keys of subscription products: licenses are issued when the order is paid, before WooCommerce sends its processing email.
+* A full refund cancels the subscriptions linked to the order (setting, on by default). Refunding order lines revokes that many licenses of each line.
+* A resubscribe takes back the customer's expired key and its sites instead of issuing a new key (setting, on by default).
+* Reactivating a license in the admin clears an expiry that has already passed. Saving the license screen without an expiry field no longer clears the expiry.
+* Customer emails "License revoked" and "License expired" (WooCommerce → Settings → Emails, overridable templates), sent once per license, never during an import.
+* A revoked or expired license shows its status beside the key in order pages and emails. Revoked and suspended licenses no longer show "Until <date>".
+* Filters `beltoft_licenses_send_status_email`, `beltoft_licenses_order_subscriptions`, `beltoft_licenses_resubscribed_subscription` and `beltoft_licenses_is_subscription_product`.
 
 = 0.7.0 =
 * Activation kinds and a resource API for plugins built on top: `add_resource`, `close_resource`, `update_resource_meta`, `resources` and `activation`. Site activations keep kind `site`; other kinds match `[a-z0-9_-]{1,20}`. `beltoft_licenses_activated` and `_deactivated` also fire for resources (identifier second, activation row third).

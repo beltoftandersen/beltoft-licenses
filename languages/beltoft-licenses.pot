@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Beltoft Licenses for WooCommerce 0.7.0\n"
+"Project-Id-Version: Beltoft Licenses for WooCommerce 0.7.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/beltoft-licenses\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-21T14:30:21+00:00\n"
+"POT-Creation-Date: 2026-10-22T14:56:49+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: beltoft-licenses\n"
@@ -44,10 +44,10 @@ msgstr ""
 #: src/Admin/Screen.php:57
 #: src/Admin/Screen.php:239
 #: src/Admin/Screen.php:261
-#: src/Settings.php:213
-#: src/Settings.php:329
-#: src/Settings.php:330
-#: src/Settings.php:360
+#: src/Settings.php:227
+#: src/Settings.php:343
+#: src/Settings.php:344
+#: src/Settings.php:374
 msgid "Licenses"
 msgstr ""
 
@@ -66,7 +66,7 @@ msgid "%s was removed from the license. You can now use it on another site."
 msgstr ""
 
 #: src/Account/Endpoint.php:274
-#: src/Admin/Screen.php:708
+#: src/Admin/Screen.php:740
 msgid "That site was not active on this license."
 msgstr ""
 
@@ -74,10 +74,10 @@ msgstr ""
 msgid "This download is not available. The license must be active, and the product must have a published version."
 msgstr ""
 
-#: src/Account/OrderLicenses.php:72
-#: src/Account/OrderLicenses.php:98
-#: src/Account/OrderLicenses.php:106
-#: src/Settings.php:245
+#: src/Account/OrderLicenses.php:83
+#: src/Account/OrderLicenses.php:109
+#: src/Account/OrderLicenses.php:117
+#: src/Settings.php:259
 msgid "License keys"
 msgstr ""
 
@@ -124,22 +124,22 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: date.
-#: src/Account/View.php:146
+#: src/Account/View.php:151
 #, php-format
 msgid "Expired %s"
 msgstr ""
 
 #. translators: %s: date.
-#: src/Account/View.php:148
+#: src/Account/View.php:153
 #, php-format
 msgid "Until %s"
 msgstr ""
 
-#: src/Account/View.php:152
+#: src/Account/View.php:157
 msgid "Renews with your subscription"
 msgstr ""
 
-#: src/Account/View.php:155
+#: src/Account/View.php:160
 msgid "Lifetime"
 msgstr ""
 
@@ -277,7 +277,7 @@ msgid "Search key, email or site"
 msgstr ""
 
 #: src/Admin/Screen.php:261
-#: src/Admin/Screen.php:492
+#: src/Admin/Screen.php:518
 msgid "That license does not exist."
 msgstr ""
 
@@ -293,7 +293,7 @@ msgid "All licenses"
 msgstr ""
 
 #: src/Admin/Screen.php:279
-#: src/Settings.php:346
+#: src/Settings.php:360
 msgid "Settings"
 msgstr ""
 
@@ -402,35 +402,81 @@ msgstr ""
 msgid "Linked to order #%d"
 msgstr ""
 
-#: src/Admin/Screen.php:506
-#: src/Admin/Screen.php:567
+#: src/Admin/Screen.php:533
+#: src/Admin/Screen.php:599
 msgid "The expiry date is not a valid date."
 msgstr ""
 
-#: src/Admin/Screen.php:518
+#: src/Admin/Screen.php:550
 msgid "The license could not be saved."
 msgstr ""
 
 #. translators: 1: previous site limit, 2: new site limit; 0 means unlimited.
-#: src/Admin/Screen.php:526
+#: src/Admin/Screen.php:558
 #, php-format
 msgid "Site limit %1$d → %2$d."
 msgstr ""
 
-#: src/Admin/Screen.php:556
+#: src/Admin/Screen.php:588
 msgid "Choose a licensed product."
 msgstr ""
 
-#: src/Admin/Screen.php:560
+#: src/Admin/Screen.php:592
 msgid "Enter the customer's email address."
 msgstr ""
 
-#: src/Admin/Screen.php:589
+#: src/Admin/Screen.php:621
 msgid "The license could not be created."
 msgstr ""
 
-#: src/Admin/Screen.php:769
+#: src/Admin/Screen.php:801
 msgid "You are not allowed to manage licenses."
+msgstr ""
+
+#: src/Emails/LicenseExpired.php:22
+msgid "License expired"
+msgstr ""
+
+#: src/Emails/LicenseExpired.php:23
+msgid "Sent to the customer when one of their licenses expires."
+msgstr ""
+
+#: src/Emails/LicenseExpired.php:34
+msgid "Your {product} license has expired"
+msgstr ""
+
+#: src/Emails/LicenseExpired.php:41
+msgid "Your license has expired"
+msgstr ""
+
+#: src/Emails/LicenseExpired.php:48
+msgid "Thank you for using our software."
+msgstr ""
+
+#: src/Emails/LicenseRevoked.php:22
+msgid "License revoked"
+msgstr ""
+
+#: src/Emails/LicenseRevoked.php:23
+msgid "Sent to the customer when one of their licenses is revoked, for example after a refund."
+msgstr ""
+
+#: src/Emails/LicenseRevoked.php:34
+msgid "Your {product} license has been revoked"
+msgstr ""
+
+#: src/Emails/LicenseRevoked.php:41
+msgid "Your license has been revoked"
+msgstr ""
+
+#: src/Emails/LicenseRevoked.php:48
+msgid "If you think this is a mistake, please reply to this email."
+msgstr ""
+
+#. translators: 1: status (revoked or expired), 2: marker with the expiry.
+#: src/Emails/Manager.php:105
+#, php-format
+msgid "Customer emailed: license %1$s. %2$s"
 msgstr ""
 
 #. translators: 1: source (order, free, manual, import), 2: number of sites.
@@ -484,75 +530,105 @@ msgid "Imported: deactivated on %s."
 msgstr ""
 
 #. translators: 1: license key, 2: software slug.
-#: src/Lifecycle/Orders.php:90
-#: src/Lifecycle/Subscriptions.php:152
+#: src/Lifecycle/Orders.php:135
+#: src/Lifecycle/Subscriptions.php:159
 #, php-format
 msgid "License %1$s issued for %2$s."
 msgstr ""
 
 #. translators: %s: license key.
-#: src/Lifecycle/Orders.php:112
+#: src/Lifecycle/Orders.php:157
 #, php-format
 msgid "Free plan already claimed: the customer keeps license %s."
 msgstr ""
 
-#. translators: %s: license key.
-#: src/Lifecycle/Orders.php:160
-#, php-format
-msgid "License %s revoked: the order was fully refunded."
+#: src/Lifecycle/Orders.php:191
+msgid "the order was fully refunded"
 msgstr ""
 
-#: src/Plugin.php:59
+#. translators: 1: license key, 2: reason.
+#: src/Lifecycle/Orders.php:217
+#, php-format
+msgid "License %1$s revoked: %2$s."
+msgstr ""
+
+#: src/Lifecycle/Orders.php:286
+msgid "its line was refunded"
+msgstr ""
+
+#: src/Lifecycle/Orders.php:318
+msgid "Cancelled: the order was fully refunded."
+msgstr ""
+
+#. translators: %s: error message.
+#: src/Lifecycle/Orders.php:322
+#, php-format
+msgid "Could not cancel after the refund: %s"
+msgstr ""
+
+#. translators: 1: license key, 2: subscription number.
+#: src/Lifecycle/Subscriptions.php:236
+#, php-format
+msgid "License %1$s taken over from subscription #%2$d."
+msgstr ""
+
+#. translators: 1: license key, 2: subscription number.
+#: src/Lifecycle/Subscriptions.php:240
+#, php-format
+msgid "License %1$s moved to subscription #%2$d (resubscribed)."
+msgstr ""
+
+#: src/Plugin.php:60
 msgid "Beltoft Licenses needs WooCommerce to sell licenses. The license API keeps answering, but nothing new can be sold until WooCommerce is active."
 msgstr ""
 
-#: src/Product.php:110
+#: src/Product.php:118
 msgid "License"
 msgstr ""
 
-#: src/Product.php:132
+#: src/Product.php:140
 msgid "Licensed product"
 msgstr ""
 
-#: src/Product.php:133
+#: src/Product.php:141
 msgid "Issue a license key for each one sold."
 msgstr ""
 
-#: src/Product.php:140
+#: src/Product.php:148
 msgid "Software slug"
 msgstr ""
 
-#: src/Product.php:141
+#: src/Product.php:149
 msgid "The plugin or theme folder name. The license API and downloads use it."
 msgstr ""
 
-#: src/Product.php:149
-#: src/Product.php:209
+#: src/Product.php:157
+#: src/Product.php:217
 msgid "Sites per license"
 msgstr ""
 
-#: src/Product.php:150
+#: src/Product.php:158
 msgid "0 for unlimited. Variations can set their own."
 msgstr ""
 
-#: src/Product.php:161
+#: src/Product.php:169
 #: src/Releases/AdminScreen.php:136
 msgid "Current version"
 msgstr ""
 
-#: src/Product.php:162
+#: src/Product.php:170
 msgid "Set automatically when a release is published. Change it to roll back."
 msgstr ""
 
-#: src/Product.php:170
+#: src/Product.php:178
 msgid "Free plan"
 msgstr ""
 
-#: src/Product.php:171
+#: src/Product.php:179
 msgid "One license per customer, with no expiry. A second order reuses the first key."
 msgstr ""
 
-#: src/Product.php:210
+#: src/Product.php:218
 msgid "Empty uses the product's setting. 0 for unlimited."
 msgstr ""
 
@@ -845,143 +921,183 @@ msgid "Revoke licenses when their order is fully refunded"
 msgstr ""
 
 #: src/Settings.php:126
-msgid "Check expiry every hour"
+msgid "Cancel the subscription when its order is fully refunded"
 msgstr ""
 
 #: src/Settings.php:127
-msgid "Licenses past their end date expire within the hour instead of at the daily run. Useful when other plugins act on expiry."
+msgid "Otherwise the subscription keeps billing after a full refund. Its licenses then expire with it."
+msgstr ""
+
+#: src/Settings.php:133
+msgid "A resubscribe takes back the customer's expired license key"
 msgstr ""
 
 #: src/Settings.php:134
+msgid "The key and its live sites move to the new subscription instead of issuing a new key. Revoked and suspended licenses are never reused."
+msgstr ""
+
+#: src/Settings.php:140
+msgid "Check expiry every hour"
+msgstr ""
+
+#: src/Settings.php:141
+msgid "Licenses past their end date expire within the hour instead of at the daily run. Useful when other plugins act on expiry."
+msgstr ""
+
+#: src/Settings.php:148
 msgid "Release storage directory"
 msgstr ""
 
-#: src/Settings.php:135
+#: src/Settings.php:149
 msgid "Absolute path, preferably outside the web root. Empty uses a protected folder in uploads."
 msgstr ""
 
-#: src/Settings.php:142
+#: src/Settings.php:156
 msgid "PHP streams the file"
 msgstr ""
 
-#: src/Settings.php:143
+#: src/Settings.php:157
 msgid "nginx X-Accel-Redirect"
 msgstr ""
 
-#: src/Settings.php:144
+#: src/Settings.php:158
 msgid "Apache X-Sendfile"
 msgstr ""
 
-#: src/Settings.php:146
+#: src/Settings.php:160
 msgid "File delivery"
 msgstr ""
 
-#: src/Settings.php:152
+#: src/Settings.php:166
 msgid "X-Accel internal location"
 msgstr ""
 
-#: src/Settings.php:153
+#: src/Settings.php:167
 msgid "The nginx \"internal\" location that maps to the storage directory, for example /protected-releases/."
 msgstr ""
 
-#: src/Settings.php:159
+#: src/Settings.php:173
 msgid "My Account downloads need at least one activated site"
 msgstr ""
 
-#: src/Settings.php:166
+#: src/Settings.php:180
 msgid "Largest release file (MB)"
 msgstr ""
 
-#: src/Settings.php:173
+#: src/Settings.php:187
 msgid "Repositories"
 msgstr ""
 
-#: src/Settings.php:174
+#: src/Settings.php:188
 msgid "One per line: owner/repository => software slug. A published GitHub release of that repository becomes a release of that software."
 msgstr ""
 
-#: src/Settings.php:180
+#: src/Settings.php:194
 msgid "Webhook secret"
 msgstr ""
 
-#: src/Settings.php:181
+#: src/Settings.php:195
 msgid "The secret set on the GitHub webhook (content type application/json, event \"Releases\"). Leave empty to keep the saved one."
 msgstr ""
 
-#: src/Settings.php:187
+#: src/Settings.php:201
 msgid "Access token"
 msgstr ""
 
-#: src/Settings.php:188
+#: src/Settings.php:202
 msgid "Only for private repositories: a token that can read their contents. Leave empty to keep the saved one."
 msgstr ""
 
-#: src/Settings.php:194
+#: src/Settings.php:208
 msgid "Make a GitHub release the current version straight away"
 msgstr ""
 
-#: src/Settings.php:195
+#: src/Settings.php:209
 msgid "Off: the release is stored, and becomes current when you choose it under Products → Releases."
 msgstr ""
 
-#: src/Settings.php:201
+#: src/Settings.php:215
 msgid "Also take pre-releases"
 msgstr ""
 
-#: src/Settings.php:208
+#: src/Settings.php:222
 msgid "My Account endpoint"
 msgstr ""
 
-#: src/Settings.php:214
+#: src/Settings.php:228
 msgid "My Account menu label"
 msgstr ""
 
-#: src/Settings.php:221
+#: src/Settings.php:235
 msgid "Treat www.example.com and example.com as the same site"
 msgstr ""
 
-#: src/Settings.php:227
+#: src/Settings.php:241
 msgid "Ignore one trailing slash in site addresses"
 msgstr ""
 
-#: src/Settings.php:233
+#: src/Settings.php:247
 msgid "Delete all licenses, releases and settings when the plugin is deleted"
 msgstr ""
 
-#: src/Settings.php:246
+#: src/Settings.php:260
 msgid "License API"
 msgstr ""
 
-#: src/Settings.php:247
+#: src/Settings.php:261
 msgid "Subscriptions"
 msgstr ""
 
-#: src/Settings.php:248
+#: src/Settings.php:262
 msgid "Downloads"
 msgstr ""
 
-#: src/Settings.php:249
+#: src/Settings.php:263
 msgid "GitHub releases"
 msgstr ""
 
-#: src/Settings.php:250
+#: src/Settings.php:264
 msgid "My Account"
 msgstr ""
 
-#: src/Settings.php:251
+#: src/Settings.php:265
 msgid "Advanced"
 msgstr ""
 
-#: src/Settings.php:363
+#: src/Settings.php:377
 msgid "License API base:"
 msgstr ""
 
-#: src/Settings.php:408
+#: src/Settings.php:422
 msgid "Saved"
 msgstr ""
 
-#: src/Settings.php:416
+#: src/Settings.php:430
 msgid "Webhook URL:"
+msgstr ""
+
+#. translators: 1: product name, 2: masked license key.
+#: templates/emails/license-expired.php:26
+#: templates/emails/plain/license-expired.php:24
+#, php-format
+msgid "Your %1$s license (%2$s) has expired. The software stops getting updates and support until the license is renewed. Renewing keeps your key and your sites."
+msgstr ""
+
+#: templates/emails/license-expired.php:31
+#: templates/emails/license-revoked.php:31
+msgid "See your licenses"
+msgstr ""
+
+#. translators: 1: product name, 2: masked license key.
+#: templates/emails/license-revoked.php:26
+#: templates/emails/plain/license-revoked.php:24
+#, php-format
+msgid "Your %1$s license (%2$s) has been revoked. It no longer works: the software will not get updates or support, and sites using it can no longer activate it."
+msgstr ""
+
+#: templates/emails/plain/license-expired.php:27
+#: templates/emails/plain/license-revoked.php:27
+msgid "See your licenses:"
 msgstr ""
 
 #: templates/myaccount/licenses.php:16
