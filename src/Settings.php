@@ -119,6 +119,13 @@ final class Settings {
 				'default' => 1,
 				'label'   => __( 'Revoke licenses when their order is fully refunded', 'beltoft-licenses' ),
 			),
+			'cancel_subscription_on_refund' => array(
+				'section' => 'subscriptions',
+				'type'    => 'checkbox',
+				'default' => 1,
+				'label'   => __( 'Cancel the subscription when its order is fully refunded', 'beltoft-licenses' ),
+				'desc'    => __( 'Otherwise the subscription keeps billing after a full refund. Its licenses then expire with it.', 'beltoft-licenses' ),
+			),
 			'expiry_hourly'            => array(
 				'section' => 'subscriptions',
 				'type'    => 'checkbox',

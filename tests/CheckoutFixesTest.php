@@ -174,4 +174,70 @@ class CheckoutFixesTest extends TestCase {
 		$this->assertCount( 1, Licenses::where( 'subscription_id', $sub->get_id() ) );
 		$this->assertSame( array(), Licenses::where( 'order_id', $renewal->get_id() ) );
 	}
+
+	// Task 2.
+
+	private function refund_fully( \WC_Order $order ): void {
+		wc_create_refund( array( 'order_id' => $order->get_id(), 'amount' => $order->get_total() ) );
+	}
+
+	public function test_full_refund_cancels_the_parent_subscription(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+		$order->update_status( 'processing' );
+
+		$this->refund_fully( $order );
+
+		$this->assertSame( 'cancelled', $sub->status );
+		$this->assertContains( 'Cancelled: the order was fully refunded.', $sub->notes );
+		$this->assertSame( 'revoked', Licenses::where( 'subscription_id', $sub->get_id() )[0]['status'] );
+	}
+
+	public function test_full_refund_of_a_renewal_cancels_its_subscription(): void {
+		$product = $this->licensed_product();
+		$parent  = $this->order( $product );
+		$sub     = $this->subscription_for( $parent, $product );
+		$parent->update_status( 'processing' );
+
+		$renewal = $this->order( $product );
+		$this->linked[ $renewal->get_id() ]['renewal'][] = $sub;
+		$renewal->update_status( 'processing' );
+		$this->refund_fully( $renewal );
+
+		$this->assertSame( 'cancelled', $sub->status );
+	}
+
+	public function test_refund_cancel_can_be_turned_off(): void {
+		$this->settings( array( 'cancel_subscription_on_refund' => 0 ) );
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+		$order->update_status( 'processing' );
+		$this->refund_fully( $order );
+
+		$this->assertSame( 'active', $sub->status );
+	}
+
+	public function test_refund_leaves_ended_subscriptions_alone(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+		$sub->status = 'expired';
+		$order->update_status( 'processing' );
+		$this->refund_fully( $order );
+
+		$this->assertSame( 'expired', $sub->status );
+		$this->assertNotContains( 'Cancelled: the order was fully refunded.', $sub->notes );
+	}
+
+	public function test_partial_refund_does_not_cancel(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+		$order->update_status( 'processing' );
+		wc_create_refund( array( 'order_id' => $order->get_id(), 'amount' => 1 ) );
+
+		$this->assertSame( 'active', $sub->status );
+	}
 }

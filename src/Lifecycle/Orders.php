@@ -30,6 +30,7 @@ final class Orders {
 		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'issue_for_order_id' ) );
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'issue_for_order_id' ) );
 		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'revoke_for_order_id' ) );
+		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'cancel_subscriptions_for_order_id' ), 20 );
 	}
 
 	/**
@@ -201,6 +202,43 @@ final class Orders {
 			if ( $order instanceof \WC_Order ) {
 				/* translators: %s: license key. */
 				$order->add_order_note( sprintf( __( 'License %s revoked: the order was fully refunded.', 'beltoft-licenses' ), $license['license_key'] ) );
+			}
+		}
+	}
+
+	/**
+	 * A fully refunded order ends the subscriptions linked to it (parent, renewal, resubscribe
+	 * and switch orders), as an admin would by cancelling them. WooCommerce Subscriptions only
+	 * cancels one that is pending cancellation
+	 * (class-wc-subscriptions-order.php, maybe_cancel_subscription_on_full_refund), so an active
+	 * subscription would keep billing. Cancelling fires `woocommerce_subscription_status_cancelled`,
+	 * which expires the licenses; nothing here refunds or fires a refund action, so no loop.
+	 *
+	 * @param int $order_id Order ID.
+	 */
+	public static function cancel_subscriptions_for_order_id( $order_id ): void {
+		if ( ! Settings::get( 'cancel_subscription_on_refund' ) ) {
+			return;
+		}
+
+		$order = wc_get_order( $order_id );
+
+		if ( ! $order instanceof \WC_Order || $order instanceof \WC_Subscription ) {
+			return;
+		}
+
+		foreach ( self::subscriptions_for( $order, array( 'parent', 'renewal', 'resubscribe', 'switch' ) ) as $subscription ) {
+			if ( in_array( $subscription->get_status(), array( 'cancelled', 'expired', 'trash' ), true ) ) {
+				continue;
+			}
+
+			try {
+				$subscription->update_status( 'cancelled', __( 'Cancelled: the order was fully refunded.', 'beltoft-licenses' ) );
+			} catch ( \Exception $e ) {
+				$subscription->add_order_note(
+					/* translators: %s: error message. */
+					sprintf( __( 'Could not cancel after the refund: %s', 'beltoft-licenses' ), $e->getMessage() )
+				);
 			}
 		}
 	}
