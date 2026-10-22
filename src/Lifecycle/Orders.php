@@ -31,6 +31,7 @@ final class Orders {
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'issue_for_order_id' ) );
 		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'revoke_for_order_id' ) );
 		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'cancel_subscriptions_for_order_id' ), 20 );
+		add_action( 'woocommerce_order_refunded', array( __CLASS__, 'revoke_for_refunded_lines' ), 10, 2 );
 	}
 
 	/**
@@ -187,21 +188,102 @@ final class Orders {
 		$order = wc_get_order( $order_id );
 
 		foreach ( Licenses::where( 'order_id', (int) $order_id ) as $license ) {
-			if ( Licenses::STATUS_REVOKED === $license['status'] ) {
+			self::revoke( $license, $order, __( 'the order was fully refunded', 'beltoft-licenses' ) );
+		}
+	}
+
+	/**
+	 * Revokes a license (once) and notes it on the order.
+	 *
+	 * @param array<string, mixed> $license License.
+	 * @param \WC_Order|false|null $order   Order to note on.
+	 * @param string               $reason  Why, for the note.
+	 */
+	private static function revoke( array $license, $order, string $reason ): void {
+		if ( Licenses::STATUS_REVOKED === $license['status'] ) {
+			return;
+		}
+
+		Licenses::update(
+			(int) $license['id'],
+			array(
+				'status'     => Licenses::STATUS_REVOKED,
+				'expires_at' => time(),
+			)
+		);
+
+		if ( $order instanceof \WC_Order ) {
+			/* translators: 1: license key, 2: reason. */
+			$order->add_order_note( sprintf( __( 'License %1$s revoked: %2$s.', 'beltoft-licenses' ), $license['license_key'], $reason ) );
+		}
+	}
+
+	/**
+	 * A refund with quantities revokes as many licenses of each refunded line as units refunded
+	 * (`woocommerce_order_refunded`, wc-order-functions.php:752, after the refund and its line
+	 * items are saved). A refund by amount only has no quantities and revokes nothing here; a
+	 * full refund is handled by revoke_for_order_id().
+	 *
+	 * @param int $order_id  Order ID.
+	 * @param int $refund_id Refund ID.
+	 */
+	public static function revoke_for_refunded_lines( $order_id, $refund_id ): void {
+		if ( ! Settings::get( 'revoke_on_refund' ) ) {
+			return;
+		}
+
+		$order  = wc_get_order( $order_id );
+		$refund = wc_get_order( $refund_id );
+
+		if ( ! $order instanceof \WC_Order || ! $refund instanceof \WC_Order_Refund ) {
+			return;
+		}
+
+		$subscriptions = null;
+
+		foreach ( $refund->get_items() as $refund_item ) {
+			$units = abs( (int) $refund_item->get_quantity() );
+			$item  = $order->get_item( (int) $refund_item->get_meta( '_refunded_item_id' ) );
+
+			if ( $units < 1 || ! $item instanceof \WC_Order_Item_Product ) {
 				continue;
 			}
 
-			Licenses::update(
-				(int) $license['id'],
-				array(
-					'status'     => Licenses::STATUS_REVOKED,
-					'expires_at' => time(),
-				)
-			);
+			$product = $item->get_product();
 
-			if ( $order instanceof \WC_Order ) {
-				/* translators: %s: license key. */
-				$order->add_order_note( sprintf( __( 'License %s revoked: the order was fully refunded.', 'beltoft-licenses' ), $license['license_key'] ) );
+			if ( ! $product instanceof \WC_Product || ! Product::is_licensed( $product ) || Product::is_free_plan( $product ) ) {
+				continue;
+			}
+
+			if ( Product::is_subscription( $product ) ) {
+				$subscriptions = $subscriptions ?? self::subscriptions_for( $order, array( 'parent', 'renewal', 'resubscribe', 'switch' ) );
+				$slug          = Product::slug( $product );
+				$candidates    = array();
+
+				foreach ( $subscriptions as $subscription ) {
+					foreach ( Licenses::where( 'subscription_id', (int) $subscription->get_id() ) as $license ) {
+						if ( $license['product_slug'] === $slug ) {
+							$candidates[ (int) $license['id'] ] = $license;
+						}
+					}
+				}
+			} else {
+				$candidates = array();
+
+				foreach ( array_filter( array_map( 'intval', (array) $item->get_meta( self::ITEM_META ) ) ) as $id ) {
+					$license = Licenses::find( $id );
+					if ( $license ) {
+						$candidates[ $id ] = $license;
+					}
+				}
+			}
+
+			// Newest first, and never count one that is already revoked.
+			krsort( $candidates );
+			$candidates = array_filter( $candidates, static fn( $l ) => Licenses::STATUS_REVOKED !== $l['status'] );
+
+			foreach ( array_slice( $candidates, 0, $units ) as $license ) {
+				self::revoke( $license, $order, __( 'its line was refunded', 'beltoft-licenses' ) );
 			}
 		}
 	}

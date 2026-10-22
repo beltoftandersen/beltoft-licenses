@@ -123,6 +123,7 @@ class CheckoutFixesTest extends TestCase {
 		WC()->mailer();
 	}
 
+
 	// Task 1.
 
 	public function test_subscription_licenses_are_issued_when_the_order_is_paid(): void {
@@ -239,5 +240,78 @@ class CheckoutFixesTest extends TestCase {
 		wc_create_refund( array( 'order_id' => $order->get_id(), 'amount' => 1 ) );
 
 		$this->assertSame( 'active', $sub->status );
+	}
+
+	// Task 3.
+
+	/**
+	 * Refunds units of the order's first line, with the money for them.
+	 */
+	private function refund_units( \WC_Order $order, int $units ): void {
+		$item = array_values( $order->get_items() )[0];
+		wc_create_refund(
+			array(
+				'order_id'   => $order->get_id(),
+				'amount'     => 10 * $units,
+				'line_items' => array(
+					$item->get_id() => array(
+						'qty'          => $units,
+						'refund_total' => 10 * $units,
+					),
+				),
+			)
+		);
+	}
+
+	private function statuses( array $licenses ): array {
+		return array_map( static fn( $l ) => Licenses::find( (int) $l['id'] )['status'], $licenses );
+	}
+
+	public function test_refunding_one_of_two_units_revokes_one_license(): void {
+		$order = $this->order( $this->licensed_product( 'one-off', array( '_test_subscription' => 'no' ) ), 2 );
+		$order->update_status( 'processing' );
+		$licenses = Licenses::where( 'order_id', $order->get_id() );
+		$this->assertCount( 2, $licenses );
+
+		$this->refund_units( $order, 1 );
+		$statuses = $this->statuses( $licenses );
+		sort( $statuses );
+		$this->assertSame( array( 'active', 'revoked' ), $statuses );
+		$this->assertSame( 'revoked', Licenses::find( max( array_column( $licenses, 'id' ) ) )['status'], 'newest first' );
+
+		// The rest of the line later: the last one goes, the revoked one is not counted twice.
+		$this->refund_units( $order, 1 );
+		$this->assertSame( array( 'revoked', 'revoked' ), $this->statuses( $licenses ) );
+	}
+
+	public function test_amount_only_refund_revokes_nothing(): void {
+		$order = $this->order( $this->licensed_product( 'one-off', array( '_test_subscription' => 'no' ) ), 2 );
+		$order->update_status( 'processing' );
+		wc_create_refund( array( 'order_id' => $order->get_id(), 'amount' => 5 ) );
+
+		$this->assertSame( array( 'active', 'active' ), $this->statuses( Licenses::where( 'order_id', $order->get_id() ) ) );
+	}
+
+	public function test_line_refund_revoke_can_be_turned_off(): void {
+		$this->settings( array( 'revoke_on_refund' => 0 ) );
+		$order = $this->order( $this->licensed_product( 'one-off', array( '_test_subscription' => 'no' ) ), 2 );
+		$order->update_status( 'processing' );
+		$this->refund_units( $order, 1 );
+
+		$this->assertSame( array( 'active', 'active' ), $this->statuses( Licenses::where( 'order_id', $order->get_id() ) ) );
+	}
+
+	public function test_refunding_a_subscription_line_revokes_that_subscriptions_licenses(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product, 2 );
+		$sub     = $this->subscription_for( $order, $product, 2 );
+		$order->update_status( 'processing' );
+		$licenses = Licenses::where( 'subscription_id', $sub->get_id() );
+		$this->assertCount( 2, $licenses );
+
+		$this->refund_units( $order, 1 );
+		$statuses = $this->statuses( $licenses );
+		sort( $statuses );
+		$this->assertSame( array( 'active', 'revoked' ), $statuses );
 	}
 }

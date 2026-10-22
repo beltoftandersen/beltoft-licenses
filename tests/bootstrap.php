@@ -16,6 +16,9 @@ if ( 'cli' !== PHP_SAPI ) {
 	exit;
 }
 
+// WooCommerce's own COMMITs (refunds) would end the test transaction and leak rows into later tests.
+define( 'WC_USE_TRANSACTIONS', false );
+
 $beltoft_licenses_tests_dir = getenv( 'WP_TESTS_DIR' ) ? getenv( 'WP_TESTS_DIR' ) : '/tmp/wordpress-tests-lib';
 $beltoft_licenses_site      = getenv( 'SITE_PLUGINS' );
 
