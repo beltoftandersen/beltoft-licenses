@@ -42,7 +42,50 @@ final class Orders {
 
 		if ( $order instanceof \WC_Order && ! $order instanceof \WC_Subscription ) {
 			self::issue( $order );
+			self::issue_for_subscriptions( $order );
 		}
+	}
+
+	/**
+	 * Issues the licenses of the subscriptions this order started, as soon as it is paid.
+	 *
+	 * WooCommerce runs `woocommerce_order_status_{to}` (class-wc-order.php, status_transition,
+	 * ~line 457) before `woocommerce_order_status_{from}_to_{to}` (~line 477), which is the
+	 * action that sends the customer's "processing" email. WooCommerce Subscriptions activates
+	 * the subscription later still, so without this the first email would have no key.
+	 * Subscriptions::issue() is idempotent, so activation finds these licenses in place.
+	 *
+	 * @param \WC_Order $order Order.
+	 */
+	public static function issue_for_subscriptions( \WC_Order $order ): void {
+		foreach ( self::subscriptions_for( $order, array( 'parent' ) ) as $subscription ) {
+			Subscriptions::issue( $subscription );
+		}
+	}
+
+	/**
+	 * The subscriptions linked to an order through the given relations (parent, renewal,
+	 * resubscribe, switch). Empty without WooCommerce Subscriptions.
+	 *
+	 * @param \WC_Order     $order Order.
+	 * @param array<string> $types Order types, as `wcs_get_subscriptions_for_order()` takes them.
+	 * @return array<int, object> WC_Subscription objects.
+	 */
+	public static function subscriptions_for( \WC_Order $order, array $types ): array {
+		$subscriptions = array();
+
+		if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
+			$subscriptions = array_values( wcs_get_subscriptions_for_order( $order, array( 'order_type' => $types ) ) );
+		}
+
+		/**
+		 * The subscriptions linked to an order. Lets other code (and tests) supply them.
+		 *
+		 * @param array<int, object> $subscriptions Subscriptions.
+		 * @param \WC_Order          $order         Order.
+		 * @param array<string>      $types         Order types.
+		 */
+		return (array) apply_filters( 'beltoft_licenses_order_subscriptions', $subscriptions, $order, $types );
 	}
 
 	/**

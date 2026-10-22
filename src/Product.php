@@ -96,7 +96,15 @@ final class Product {
 	 * @param \WC_Product $product Product or variation.
 	 */
 	public static function is_subscription( \WC_Product $product ): bool {
-		return class_exists( 'WC_Subscriptions_Product' ) && \WC_Subscriptions_Product::is_subscription( $product );
+		$is = class_exists( 'WC_Subscriptions_Product' ) && \WC_Subscriptions_Product::is_subscription( $product );
+
+		/**
+		 * Whether a product is a subscription product (its licenses follow the subscription).
+		 *
+		 * @param bool        $is      Whether WooCommerce Subscriptions says so.
+		 * @param \WC_Product $product Product.
+		 */
+		return (bool) apply_filters( 'beltoft_licenses_is_subscription_product', $is, $product );
 	}
 
 	/**

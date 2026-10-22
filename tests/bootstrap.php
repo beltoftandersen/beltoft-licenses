@@ -46,3 +46,4 @@ tests_add_filter(
 
 require $beltoft_licenses_tests_dir . '/includes/bootstrap.php';
 require __DIR__ . '/TestCase.php';
+require __DIR__ . '/FakeSubscription.php';

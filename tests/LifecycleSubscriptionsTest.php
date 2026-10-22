@@ -13,21 +13,6 @@ use BeltoftLicenses\Lifecycle\Subscriptions;
 use BeltoftLicenses\Product;
 use BeltoftLicenses\Software;
 
-class FakeSubscription {
-	public $id;
-	public $items = array();
-	public $end   = 0;
-	public $notes = array();
-	public function __construct( int $id ) { $this->id = $id; }
-	public function get_id() { return $this->id; }
-	public function get_items() { return $this->items; }
-	public function get_customer_id() { return 7; }
-	public function get_billing_email() { return 'sub@example.org'; }
-	public function get_parent_id() { return 1000 + $this->id; }
-	public function get_time( $type ) { return 'end' === $type ? $this->end : 0; }
-	public function add_order_note( $note ) { $this->notes[] = $note; }
-}
-
 class LifecycleSubscriptionsTest extends TestCase {
 
 	private function product_with_limit( int $max, string $slug = 'sub-plugin' ): \WC_Product_Simple {
