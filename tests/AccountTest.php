@@ -218,6 +218,39 @@ class AccountTest extends TestCase {
 		$this->assertSame( '', (string) ob_get_clean(), 'never in the shop\'s copy' );
 	}
 
+	public function test_ended_licenses_show_their_status_in_order_pages_and_emails(): void {
+		$order = wc_create_order();
+		$order->set_billing_email( 'me@example.org' );
+		$order->set_status( 'processing' );
+		$order->save();
+		$active  = $this->license( array( 'order_id' => $order->get_id() ) );
+		$revoked = $this->license( array( 'order_id' => $order->get_id(), 'status' => 'revoked' ) );
+		$expired = $this->license( array( 'order_id' => $order->get_id(), 'expires_at' => time() - 3600 ) );
+
+		ob_start();
+		OrderLicenses::email( $order, false, false );
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( $revoked['license_key'] . '</code> (Revoked)', $html );
+		$this->assertStringContainsString( $expired['license_key'] . '</code> (Expired)', $html );
+		$this->assertStringContainsString( $active['license_key'] . '</code></li>', $html );
+
+		ob_start();
+		OrderLicenses::email( $order, false, true );
+		$plain = (string) ob_get_clean();
+		$this->assertStringContainsString( $revoked['license_key'] . ' (Revoked)', $plain );
+
+		ob_start();
+		OrderLicenses::html( $order );
+		$this->assertStringContainsString( $revoked['license_key'] . '</code> (Revoked)', (string) ob_get_clean() );
+	}
+
+	public function test_revoked_and_suspended_licenses_show_a_status_not_until_a_date(): void {
+		$date = array( 'expires_at' => '2031-01-01 00:00:00', 'subscription_id' => null );
+		$this->assertSame( 'Revoked', View::expiry_label( $date, 'revoked' ) );
+		$this->assertSame( 'Suspended', View::expiry_label( $date, 'suspended' ) );
+		$this->assertStringStartsWith( 'Until', View::expiry_label( $date, 'active' ) );
+	}
+
 	public function test_history_is_written_from_the_license_actions(): void {
 		$l = $this->license( array( 'max_activations' => 0 ) );
 		Licenses::activate( $l, 'a.example' );

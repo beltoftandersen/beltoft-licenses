@@ -54,6 +54,17 @@ final class OrderLicenses {
 	}
 
 	/**
+	 * The status to show beside a key: nothing while it is active.
+	 *
+	 * @param array<string, mixed> $license License.
+	 */
+	private static function status_suffix( array $license ): string {
+		$status = Licenses::effective_status( $license );
+
+		return Licenses::STATUS_ACTIVE === $status ? '' : ' (' . View::status_label( $status ) . ')';
+	}
+
+	/**
 	 * Under the order table on the thank-you and view-order pages.
 	 *
 	 * @param \WC_Order $order Order.
@@ -71,7 +82,7 @@ final class OrderLicenses {
 
 		echo '<section class="beltoft-licenses__order"><h2>' . esc_html__( 'License keys', 'beltoft-licenses' ) . '</h2><ul>';
 		foreach ( $licenses as $license ) {
-			printf( '<li>%1$s: <code>%2$s</code></li>', esc_html( View::product_name( $license ) ), esc_html( (string) $license['license_key'] ) );
+			printf( '<li>%1$s: <code>%2$s</code>%3$s</li>', esc_html( View::product_name( $license ) ), esc_html( (string) $license['license_key'] ), esc_html( self::status_suffix( $license ) ) );
 		}
 		echo '</ul></section>';
 	}
@@ -97,7 +108,7 @@ final class OrderLicenses {
 		if ( $plain_text ) {
 			echo "\n" . esc_html( strtoupper( __( 'License keys', 'beltoft-licenses' ) ) ) . "\n\n";
 			foreach ( $licenses as $license ) {
-				echo esc_html( View::product_name( $license ) . ': ' . $license['license_key'] ) . "\n";
+				echo esc_html( View::product_name( $license ) . ': ' . $license['license_key'] . self::status_suffix( $license ) ) . "\n";
 			}
 			echo "\n";
 			return;
@@ -105,7 +116,7 @@ final class OrderLicenses {
 
 		echo '<h2>' . esc_html__( 'License keys', 'beltoft-licenses' ) . '</h2><ul>';
 		foreach ( $licenses as $license ) {
-			printf( '<li>%1$s: <code>%2$s</code></li>', esc_html( View::product_name( $license ) ), esc_html( (string) $license['license_key'] ) );
+			printf( '<li>%1$s: <code>%2$s</code>%3$s</li>', esc_html( View::product_name( $license ) ), esc_html( (string) $license['license_key'] ), esc_html( self::status_suffix( $license ) ) );
 		}
 		echo '</ul>';
 	}

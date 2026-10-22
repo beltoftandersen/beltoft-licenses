@@ -138,6 +138,11 @@ final class View {
 	 * @param string               $status  Effective status.
 	 */
 	public static function expiry_label( array $license, string $status ): string {
+		// A revoked or suspended license is not "until" anything: it is not working now.
+		if ( in_array( $status, array( Licenses::STATUS_REVOKED, Licenses::STATUS_SUSPENDED ), true ) ) {
+			return self::status_label( $status );
+		}
+
 		if ( null !== $license['expires_at'] ) {
 			$date = wp_date( get_option( 'date_format' ), (int) strtotime( $license['expires_at'] . ' UTC' ) );
 
