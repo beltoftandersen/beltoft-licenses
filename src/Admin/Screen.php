@@ -467,12 +467,38 @@ final class Screen {
 		foreach ( array_unique( array_filter( array_map( 'intval', $ids ) ) ) as $id ) {
 			$license = Licenses::find( $id );
 
-			if ( $license && self::BULK[ $action ] !== $license['status'] && Licenses::update( $id, array( 'status' => self::BULK[ $action ] ) ) ) {
+			if ( ! $license || self::BULK[ $action ] === $license['status'] ) {
+				continue;
+			}
+
+			$data = array( 'status' => self::BULK[ $action ] );
+
+			// A license brought back must not stay expired by a date already past.
+			if ( Licenses::STATUS_ACTIVE === $data['status'] && self::is_past( $license['expires_at'] ) ) {
+				$data['expires_at'] = null;
+			}
+
+			if ( Licenses::update( $id, $data ) ) {
 				++$changed;
 			}
 		}
 
 		return $changed;
+	}
+
+	/**
+	 * Whether an expiry (UTC datetime string, or a timestamp) is already past.
+	 *
+	 * @param string|int|null $expires Expiry.
+	 */
+	private static function is_past( $expires ): bool {
+		if ( null === $expires || '' === $expires ) {
+			return false;
+		}
+
+		$time = is_int( $expires ) ? $expires : strtotime( $expires . ' UTC' );
+
+		return false !== $time && $time <= time();
 	}
 
 	/**
@@ -498,8 +524,9 @@ final class Screen {
 			$data['status'] = $input['status'];
 		}
 
+		// Only when the field was submitted: an absent field is not an empty one.
 		$expires = trim( (string) ( $input['expires'] ?? '' ) );
-		if ( self::date_value( $license['expires_at'] ) !== $expires ) {
+		if ( array_key_exists( 'expires', $input ) && self::date_value( $license['expires_at'] ) !== $expires ) {
 			$time = '' === $expires ? null : self::end_of_day( $expires );
 
 			if ( '' !== $expires && null === $time ) {
@@ -507,6 +534,11 @@ final class Screen {
 			}
 
 			$data['expires_at'] = $time;
+		}
+
+		// Setting a license active with an expiry already past would leave it expired.
+		if ( isset( $data['status'] ) && Licenses::STATUS_ACTIVE === $data['status'] && self::is_past( array_key_exists( 'expires_at', $data ) ? $data['expires_at'] : $license['expires_at'] ) ) {
+			$data['expires_at'] = null;
 		}
 
 		$max = isset( $input['max_activations'] ) ? max( 0, (int) $input['max_activations'] ) : $license['max_activations'];

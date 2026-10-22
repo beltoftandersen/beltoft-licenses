@@ -341,4 +341,36 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'name="licenses[]"', $html );
 		$this->assertStringContainsString( 'Export CSV', $html );
 	}
+
+	public function test_reactivating_clears_a_past_expiry_and_keeps_a_future_one(): void {
+		$past   = $this->license( array( 'status' => 'revoked', 'expires_at' => time() - DAY_IN_SECONDS ) );
+		$future = $this->license( array( 'status' => 'suspended', 'expires_at' => time() + 30 * DAY_IN_SECONDS ) );
+
+		$this->assertSame( 2, Screen::bulk( 'reactivate', array( $past['id'], $future['id'] ) ) );
+		$this->assertNull( Licenses::find( $past['id'] )['expires_at'] );
+		$this->assertSame( 'active', Licenses::effective_status( Licenses::find( $past['id'] ) ) );
+		$this->assertNotNull( Licenses::find( $future['id'] )['expires_at'] );
+	}
+
+	public function test_save_to_active_clears_a_past_expiry_but_not_a_future_one(): void {
+		$past   = $this->license( array( 'status' => 'revoked', 'expires_at' => time() - DAY_IN_SECONDS ) );
+		$future = $this->license( array( 'status' => 'revoked', 'expires_at' => time() + 30 * DAY_IN_SECONDS ) );
+
+		$shown = gmdate( 'Y-m-d', strtotime( $past['expires_at'] . ' UTC' ) );
+		$this->assertTrue( Screen::save( $past['id'], array( 'status' => 'active', 'expires' => $shown ) ) );
+		$this->assertNull( Licenses::find( $past['id'] )['expires_at'] );
+
+		$this->assertTrue( Screen::save( $future['id'], array( 'status' => 'active', 'expires' => gmdate( 'Y-m-d', strtotime( $future['expires_at'] . ' UTC' ) ) ) ) );
+		$this->assertNotNull( Licenses::find( $future['id'] )['expires_at'] );
+	}
+
+	public function test_save_without_an_expires_field_keeps_the_expiry(): void {
+		$license = $this->license( array( 'expires_at' => time() + 30 * DAY_IN_SECONDS ) );
+
+		$this->assertTrue( Screen::save( $license['id'], array( 'max_activations' => 9 ) ) );
+		$this->assertSame( $license['expires_at'], Licenses::find( $license['id'] )['expires_at'] );
+
+		$this->assertTrue( Screen::save( $license['id'], array( 'expires' => '' ) ) );
+		$this->assertNull( Licenses::find( $license['id'] )['expires_at'], 'a submitted empty field still clears it' );
+	}
 }
