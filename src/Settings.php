@@ -126,6 +126,13 @@ final class Settings {
 				'label'   => __( 'Cancel the subscription when its order is fully refunded', 'beltoft-licenses' ),
 				'desc'    => __( 'Otherwise the subscription keeps billing after a full refund. Its licenses then expire with it.', 'beltoft-licenses' ),
 			),
+			'resubscribe_keeps_key'    => array(
+				'section' => 'subscriptions',
+				'type'    => 'checkbox',
+				'default' => 1,
+				'label'   => __( 'A resubscribe takes back the customer\'s expired license key', 'beltoft-licenses' ),
+				'desc'    => __( 'The key and its live sites move to the new subscription instead of issuing a new key. Revoked and suspended licenses are never reused.', 'beltoft-licenses' ),
+			),
 			'expiry_hourly'            => array(
 				'section' => 'subscriptions',
 				'type'    => 'checkbox',

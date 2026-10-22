@@ -314,4 +314,79 @@ class CheckoutFixesTest extends TestCase {
 		sort( $statuses );
 		$this->assertSame( array( 'active', 'revoked' ), $statuses );
 	}
+
+	// Task 4.
+
+	/**
+	 * An old subscription with an expired license, and the new one that resubscribes it.
+	 *
+	 * @return array{0: FakeSubscription, 1: FakeSubscription, 2: array<string, mixed>}
+	 */
+	private function resubscribe_pair( string $old_status = 'expired' ): array {
+		$product = $this->licensed_product();
+		$old     = new FakeSubscription( 500 );
+		$item    = new \WC_Order_Item_Product();
+		$item->set_product( $product );
+		$item->set_quantity( 1 );
+		$old->items[] = $item;
+		Subscriptions::activated( $old );
+		$license = Licenses::where( 'subscription_id', 500 )[0];
+		Licenses::activate( $license, 'keep.example' );
+		Licenses::update( (int) $license['id'], array( 'status' => $old_status, 'expires_at' => time() - DAY_IN_SECONDS ) );
+
+		add_filter(
+			'beltoft_licenses_resubscribed_subscription',
+			static fn( $found, $id ) => 500 === $id ? $old : $found,
+			10,
+			2
+		);
+
+		$new       = new FakeSubscription( 501 );
+		$new->meta = array( '_subscription_resubscribe' => 500 );
+		$new_item  = new \WC_Order_Item_Product();
+		$new_item->set_product( $product );
+		$new_item->set_quantity( 1 );
+		$new->items[] = $new_item;
+
+		return array( $old, $new, $license );
+	}
+
+	public function test_resubscribe_takes_back_the_expired_key_and_its_sites(): void {
+		list( $old, $new, $license ) = $this->resubscribe_pair();
+
+		Subscriptions::activated( $new );
+
+		$this->assertSame( array(), Licenses::where( 'subscription_id', 500 ) );
+		$moved = Licenses::where( 'subscription_id', 501 );
+		$this->assertCount( 1, $moved, 'no new key' );
+		$this->assertSame( $license['license_key'], $moved[0]['license_key'] );
+		$this->assertSame( 'active', $moved[0]['status'] );
+		$this->assertNull( $moved[0]['expires_at'] );
+		$this->assertSame( 1501, $moved[0]['order_id'] );
+		$this->assertCount( 1, Licenses::live_activations( $moved[0]['id'] ), 'the live site stays attached' );
+		$this->assertNotEmpty( array_filter( $old->notes, static fn( $n ) => false !== strpos( $n, 'moved to subscription #501' ) ) );
+		$this->assertNotEmpty( array_filter( $new->notes, static fn( $n ) => false !== strpos( $n, 'taken over from subscription #500' ) ) );
+	}
+
+	public function test_resubscribe_does_not_reuse_a_revoked_license(): void {
+		list( , $new, $license ) = $this->resubscribe_pair( 'revoked' );
+
+		Subscriptions::activated( $new );
+
+		$issued = Licenses::where( 'subscription_id', 501 );
+		$this->assertCount( 1, $issued );
+		$this->assertNotSame( $license['license_key'], $issued[0]['license_key'] );
+		$this->assertSame( 'revoked', Licenses::find( (int) $license['id'] )['status'] );
+	}
+
+	public function test_resubscribe_key_reuse_can_be_turned_off(): void {
+		$this->settings( array( 'resubscribe_keeps_key' => 0 ) );
+		list( , $new, $license ) = $this->resubscribe_pair();
+
+		Subscriptions::activated( $new );
+
+		$issued = Licenses::where( 'subscription_id', 501 );
+		$this->assertNotSame( $license['license_key'], $issued[0]['license_key'] );
+		$this->assertCount( 1, Licenses::where( 'subscription_id', 500 ) );
+	}
 }

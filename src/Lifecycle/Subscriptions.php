@@ -124,6 +124,7 @@ final class Subscriptions {
 	public static function issue( $subscription ): array {
 		$existing = Licenses::where( 'subscription_id', (int) $subscription->get_id() );
 		$issued   = array();
+		$old      = self::resubscribed_from( $subscription );
 
 		foreach ( self::licensed_items( $subscription ) as $item ) {
 			$product = $item->get_product();
@@ -132,6 +133,12 @@ final class Subscriptions {
 			$wanted  = max( 1, (int) $item->get_quantity() );
 
 			for ( $i = $have; $i < $wanted; $i++ ) {
+				$license = self::take_over( $old, $slug, $subscription );
+
+				if ( $license ) {
+					continue;
+				}
+
 				$license = Licenses::create(
 					array(
 						'product_slug'    => $slug,
@@ -155,6 +162,88 @@ final class Subscriptions {
 		}
 
 		return $issued;
+	}
+
+	/**
+	 * The licenses of the subscription this one resubscribes, while the setting is on. WooCommerce
+	 * Subscriptions keeps the old subscription's id in the new one's `_subscription_resubscribe`
+	 * meta (class-wc-subscriptions-order.php:920; the REST API reads it as `resubscribed_from`).
+	 *
+	 * @param object $subscription WC_Subscription.
+	 * @return array{subscription: object|null, licenses: array<int, array<string, mixed>>}
+	 */
+	private static function resubscribed_from( $subscription ): array {
+		$none = array(
+			'subscription' => null,
+			'licenses'     => array(),
+		);
+		$id   = (int) $subscription->get_meta( '_subscription_resubscribe' );
+
+		if ( ! Settings::get( 'resubscribe_keeps_key' ) || $id <= 0 || $id === (int) $subscription->get_id() ) {
+			return $none;
+		}
+
+		$licenses = array_filter(
+			Licenses::where( 'subscription_id', $id ),
+			static fn( $l ) => Licenses::STATUS_EXPIRED === Licenses::effective_status( $l )
+		);
+
+		$old = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( $id ) : null;
+
+		/**
+		 * The old subscription of a resubscribe, to note the move on. Lets tests supply one.
+		 *
+		 * @param object|null $old Old subscription.
+		 * @param int         $id  Its ID.
+		 */
+		$old = apply_filters( 'beltoft_licenses_resubscribed_subscription', $old, $id );
+
+		return array(
+			'subscription' => is_object( $old ) ? $old : null,
+			'licenses'     => array_values( $licenses ),
+		);
+	}
+
+	/**
+	 * Moves one expired license of the same software from the old subscription to this one: the
+	 * key, its live sites and its history stay. It is active again, because the order that
+	 * started this subscription is paid.
+	 *
+	 * @param array<string, mixed> $old          From resubscribed_from(), consumed as licenses are taken.
+	 * @param string               $slug         Software slug.
+	 * @param object               $subscription The new subscription.
+	 * @return array<string, mixed>|null The license, or null when there is none to take.
+	 */
+	private static function take_over( array &$old, string $slug, $subscription ): ?array {
+		foreach ( $old['licenses'] as $index => $license ) {
+			if ( $license['product_slug'] !== $slug ) {
+				continue;
+			}
+
+			unset( $old['licenses'][ $index ] );
+
+			Licenses::update(
+				(int) $license['id'],
+				array(
+					'subscription_id' => (int) $subscription->get_id(),
+					'order_id'        => $subscription->get_parent_id() ? (int) $subscription->get_parent_id() : null,
+					'status'          => Licenses::STATUS_ACTIVE,
+					'expires_at'      => null,
+				)
+			);
+
+			/* translators: 1: license key, 2: subscription number. */
+			$subscription->add_order_note( sprintf( __( 'License %1$s taken over from subscription #%2$d.', 'beltoft-licenses' ), $license['license_key'], (int) $license['subscription_id'] ) );
+
+			if ( $old['subscription'] ) {
+				/* translators: 1: license key, 2: subscription number. */
+				$old['subscription']->add_order_note( sprintf( __( 'License %1$s moved to subscription #%2$d (resubscribed).', 'beltoft-licenses' ), $license['license_key'], (int) $subscription->get_id() ) );
+			}
+
+			return Licenses::find( (int) $license['id'] );
+		}
+
+		return null;
 	}
 
 	/**
