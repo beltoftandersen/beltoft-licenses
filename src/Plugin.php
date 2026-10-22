@@ -32,6 +32,7 @@ final class Plugin {
 		}
 
 		Product::register();
+		Emails\Manager::register();
 		Lifecycle\Orders::register();
 		Lifecycle\Expiry::register();
 		// Hooks itself only when WooCommerce Subscriptions is active.

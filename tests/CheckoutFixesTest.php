@@ -389,4 +389,99 @@ class CheckoutFixesTest extends TestCase {
 		$this->assertNotSame( $license['license_key'], $issued[0]['license_key'] );
 		$this->assertCount( 1, Licenses::where( 'subscription_id', 500 ) );
 	}
+
+	// Task 6.
+
+	private function ending_mail( callable $run ): array {
+		$this->fresh_mailer();
+		$sent = $this->capture_mail( $run );
+
+		return array_values( array_filter( $sent, static fn( $m ) => false !== strpos( $m['subject'], 'license has' ) ) );
+	}
+
+	public function test_revoking_emails_the_customer_once_with_a_masked_key(): void {
+		$license = $this->license( array( 'email' => 'cust@example.org', 'product_slug' => 'my-plugin' ) );
+
+		$sent = $this->ending_mail(
+			static function () use ( $license ) {
+				Licenses::update( $license['id'], array( 'status' => 'revoked' ) );
+				Licenses::update( $license['id'], array( 'expires_at' => time() ) );
+				Licenses::update( $license['id'], array( 'status' => 'revoked' ) );
+			}
+		);
+
+		$this->assertCount( 1, $sent );
+		$this->assertSame( 'cust@example.org', is_array( $sent[0]['to'] ) ? $sent[0]['to'][0] : $sent[0]['to'] );
+		$this->assertStringContainsString( 'revoked', $sent[0]['subject'] );
+		$this->assertStringContainsString( substr( $license['license_key'], -4 ), $sent[0]['message'] );
+		$this->assertStringNotContainsString( $license['license_key'], $sent[0]['message'], 'the key is masked' );
+	}
+
+	public function test_expiry_emails_once_whether_by_date_or_by_status(): void {
+		$license = $this->license( array( 'email' => 'cust@example.org' ) );
+
+		$sent = $this->ending_mail(
+			static function () use ( $license ) {
+				// An expiry already past is an expired license at once; the daily job then marks it.
+				Licenses::update( $license['id'], array( 'expires_at' => time() - 60 ) );
+				\BeltoftLicenses\Lifecycle\Expiry::run();
+			}
+		);
+
+		$this->assertCount( 1, $sent );
+		$this->assertStringContainsString( 'expired', $sent[0]['subject'] );
+	}
+
+	public function test_a_license_that_ends_again_after_coming_back_is_told_again(): void {
+		$license = $this->license( array( 'email' => 'cust@example.org' ) );
+
+		$sent = $this->ending_mail(
+			static function () use ( $license ) {
+				Licenses::update( $license['id'], array( 'expires_at' => time() - 60 ) );
+				Licenses::update( $license['id'], array( 'expires_at' => null ) );
+				Licenses::update( $license['id'], array( 'expires_at' => time() - 30 ) );
+			}
+		);
+
+		$this->assertCount( 2, $sent );
+	}
+
+	public function test_no_email_for_suspended_or_during_an_import(): void {
+		$one = $this->license( array( 'email' => 'cust@example.org' ) );
+		$two = $this->license( array( 'email' => 'cust@example.org' ) );
+
+		$sent = $this->ending_mail(
+			function () use ( $one, $two ) {
+				Licenses::update( $one['id'], array( 'status' => 'suspended' ) );
+
+				$running = new \ReflectionProperty( \BeltoftLicenses\Import::class, 'running' );
+				$running->setAccessible( true );
+				$running->setValue( null, true );
+				Licenses::update( $two['id'], array( 'status' => 'revoked' ) );
+				$running->setValue( null, false );
+			}
+		);
+
+		$this->assertSame( array(), $sent );
+	}
+
+	public function test_emails_can_be_switched_off_and_have_templates(): void {
+		update_option( 'woocommerce_beltoft_licenses_revoked_settings', array( 'enabled' => 'no' ) );
+		$license = $this->license( array( 'email' => 'cust@example.org' ) );
+
+		$sent = $this->ending_mail(
+			static function () use ( $license ) {
+				Licenses::update( $license['id'], array( 'status' => 'revoked' ) );
+			}
+		);
+		$this->assertSame( array(), $sent );
+
+		foreach ( array( 'revoked', 'expired' ) as $name ) {
+			$this->assertFileExists( BELTOFT_LICENSES_PATH . "templates/emails/license-$name.php" );
+			$this->assertFileExists( BELTOFT_LICENSES_PATH . "templates/emails/plain/license-$name.php" );
+		}
+		$emails = WC()->mailer()->get_emails();
+		$this->assertArrayHasKey( 'Beltoft_Licenses_Email_Expired', $emails );
+		$this->assertStringContainsString( 'expired', $emails['Beltoft_Licenses_Email_Expired']->get_default_heading() );
+	}
 }
