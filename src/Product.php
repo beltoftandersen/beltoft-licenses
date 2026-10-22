@@ -99,7 +99,9 @@ final class Product {
 		$is = class_exists( 'WC_Subscriptions_Product' ) && \WC_Subscriptions_Product::is_subscription( $product );
 
 		/**
-		 * Whether a product is a subscription product (its licenses follow the subscription).
+		 * Whether a product is a subscription product, whose licenses follow its subscription
+		 * instead of being issued per order. A site using a subscriptions plugin other than
+		 * WooCommerce Subscriptions can return true for its recurring products.
 		 *
 		 * @param bool        $is      Whether WooCommerce Subscriptions says so.
 		 * @param \WC_Product $product Product.

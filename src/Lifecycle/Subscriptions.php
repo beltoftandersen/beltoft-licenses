@@ -191,7 +191,8 @@ final class Subscriptions {
 		$old = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( $id ) : null;
 
 		/**
-		 * The old subscription of a resubscribe, to note the move on. Lets tests supply one.
+		 * Overrides the old subscription of a resubscribe, the one the move of a license is noted on
+		 * (WooCommerce Subscriptions' own object by default).
 		 *
 		 * @param object|null $old Old subscription.
 		 * @param int         $id  Its ID.

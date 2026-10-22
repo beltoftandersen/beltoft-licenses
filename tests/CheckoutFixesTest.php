@@ -484,4 +484,78 @@ class CheckoutFixesTest extends TestCase {
 		$this->assertArrayHasKey( 'Beltoft_Licenses_Email_Expired', $emails );
 		$this->assertStringContainsString( 'expired', $emails['Beltoft_Licenses_Email_Expired']->get_default_heading() );
 	}
+
+	// Review fixes.
+
+	public function test_a_subscription_that_is_not_active_when_the_order_is_paid_gets_a_short_expiry(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+		$sub->status = 'pending';
+
+		$order->update_status( 'processing' );
+
+		$license = Licenses::where( 'subscription_id', $sub->get_id() )[0];
+		$this->assertNotNull( $license['expires_at'], 'never perpetual without an active subscription' );
+		$this->assertEqualsWithDelta( time() + 3 * DAY_IN_SECONDS, strtotime( $license['expires_at'] . ' UTC' ), 10 );
+
+		$sub->status = 'active';
+		Subscriptions::activated( $sub );
+		$this->assertNull( Licenses::find( $license['id'] )['expires_at'], 'activation clears it' );
+	}
+
+	public function test_an_active_subscription_gets_no_expiry_and_the_key_is_in_the_email(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product );
+		$sub     = $this->subscription_for( $order, $product );
+
+		$sent = $this->capture_mail(
+			function () use ( $order ) {
+				$this->fresh_mailer();
+				$order->update_status( 'processing' );
+			}
+		);
+
+		$license = Licenses::where( 'subscription_id', $sub->get_id() )[0];
+		$this->assertNull( $license['expires_at'] );
+		$this->assertStringContainsString( $license['license_key'], implode( ' ', array_column( $sent, 'message' ) ) );
+	}
+
+	public function test_a_refund_never_revokes_a_free_plan_license(): void {
+		$free  = $this->licensed_product( 'free-plugin', array( Product::META_FREE => 'yes', '_test_subscription' => 'no' ) );
+		$order = $this->order( $free );
+		$order->update_status( 'processing' );
+		$license = Licenses::where( 'order_id', $order->get_id() )[0];
+		$this->assertSame( 'free', $license['source'] );
+
+		$this->refund_fully( $order );
+		$this->assertSame( 'active', Licenses::find( $license['id'] )['status'] );
+	}
+
+	public function test_a_line_refund_on_a_renewal_order_keeps_the_key(): void {
+		$product = $this->licensed_product();
+		$parent  = $this->order( $product );
+		$sub     = $this->subscription_for( $parent, $product );
+		$parent->update_status( 'processing' );
+
+		$renewal = $this->order( $product );
+		$this->linked[ $renewal->get_id() ]['renewal'][] = $sub;
+		$renewal->update_status( 'processing' );
+		$this->refund_units( $renewal, 1 );
+
+		$this->assertSame( 'active', Licenses::where( 'subscription_id', $sub->get_id() )[0]['status'] );
+		$notes = wc_get_order_notes( array( 'order_id' => $renewal->get_id() ) );
+		$this->assertNotEmpty( array_filter( $notes, static fn( $n ) => false !== strpos( $n->content, 'no license was revoked' ) ) );
+	}
+
+	public function test_a_failed_email_is_not_recorded_as_sent(): void {
+		$license = $this->license( array( 'email' => 'cust@example.org' ) );
+		$this->fresh_mailer();
+		add_filter( 'pre_wp_mail', '__return_false' );
+		Licenses::update( $license['id'], array( 'status' => 'revoked' ) );
+		remove_filter( 'pre_wp_mail', '__return_false' );
+
+		$types = array_column( \BeltoftLicenses\Events::for_license( $license['id'] ), 'type' );
+		$this->assertNotContains( 'email_revoked', $types );
+	}
 }

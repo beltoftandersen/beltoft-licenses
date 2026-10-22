@@ -61,7 +61,20 @@ final class Orders {
 	 */
 	public static function issue_for_subscriptions( \WC_Order $order ): void {
 		foreach ( self::subscriptions_for( $order, array( 'parent' ) ) as $subscription ) {
-			Subscriptions::issue( $subscription );
+			$issued = Subscriptions::issue( $subscription );
+
+			// This runs before WooCommerce Subscriptions records the payment and activates the
+			// subscription (it does that on woocommerce_order_status_changed, class-wc-subscriptions-order.php:40,
+			// after this hook). If it does not activate (an order moved by hand from a status WCS does not treat
+			// as unpaid, or a gateway filter), the key must not be perpetual: it gets the grace period, as
+			// an on-hold subscription does, and Subscriptions::activated() clears it when the subscription starts.
+			if ( $issued && 'active' !== $subscription->get_status() ) {
+				$until = time() + DAY_IN_SECONDS * max( 1, (int) Settings::get( 'grace_days' ) );
+
+				foreach ( $issued as $license ) {
+					Licenses::update( (int) $license['id'], array( 'expires_at' => $until ) );
+				}
+			}
 		}
 	}
 
@@ -81,7 +94,9 @@ final class Orders {
 		}
 
 		/**
-		 * The subscriptions linked to an order. Lets other code (and tests) supply them.
+		 * The subscriptions linked to an order through the given relations. A site using a
+		 * subscriptions plugin other than WooCommerce Subscriptions can return its own subscription
+		 * objects (with the WC_Subscription methods this plugin calls), or narrow the list.
 		 *
 		 * @param array<int, object> $subscriptions Subscriptions.
 		 * @param \WC_Order          $order         Order.
@@ -200,7 +215,8 @@ final class Orders {
 	 * @param string               $reason  Why, for the note.
 	 */
 	private static function revoke( array $license, $order, string $reason ): void {
-		if ( Licenses::STATUS_REVOKED === $license['status'] ) {
+		// A free-plan license is the customer's one key, shared by every order that claimed it.
+		if ( Licenses::STATUS_REVOKED === $license['status'] || 'free' === $license['source'] ) {
 			return;
 		}
 
@@ -256,7 +272,15 @@ final class Orders {
 			}
 
 			if ( Product::is_subscription( $product ) ) {
-				$subscriptions = $subscriptions ?? self::subscriptions_for( $order, array( 'parent', 'renewal', 'resubscribe', 'switch' ) );
+				// Only the order that sold the key (parent, resubscribe and switch orders): a renewal
+				// order's line refund leaves the subscription billing, so its key stays.
+				$subscriptions = $subscriptions ?? self::subscriptions_for( $order, array( 'parent', 'switch' ) );
+
+				if ( ! $subscriptions ) {
+					$order->add_order_note( __( 'A subscription line was refunded: no license was revoked, because this is not the order that started the subscription.', 'beltoft-licenses' ) );
+					continue;
+				}
+
 				$slug          = Product::slug( $product );
 				$candidates    = array();
 

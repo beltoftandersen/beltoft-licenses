@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-22T14:56:49+00:00\n"
+"POT-Creation-Date: 2026-10-22T15:09:03+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: beltoft-licenses\n"
@@ -474,7 +474,7 @@ msgid "If you think this is a mistake, please reply to this email."
 msgstr ""
 
 #. translators: 1: status (revoked or expired), 2: marker with the expiry.
-#: src/Emails/Manager.php:105
+#: src/Emails/Manager.php:107
 #, php-format
 msgid "Customer emailed: license %1$s. %2$s"
 msgstr ""
@@ -530,50 +530,54 @@ msgid "Imported: deactivated on %s."
 msgstr ""
 
 #. translators: 1: license key, 2: software slug.
-#: src/Lifecycle/Orders.php:135
+#: src/Lifecycle/Orders.php:150
 #: src/Lifecycle/Subscriptions.php:159
 #, php-format
 msgid "License %1$s issued for %2$s."
 msgstr ""
 
 #. translators: %s: license key.
-#: src/Lifecycle/Orders.php:157
+#: src/Lifecycle/Orders.php:172
 #, php-format
 msgid "Free plan already claimed: the customer keeps license %s."
 msgstr ""
 
-#: src/Lifecycle/Orders.php:191
+#: src/Lifecycle/Orders.php:206
 msgid "the order was fully refunded"
 msgstr ""
 
 #. translators: 1: license key, 2: reason.
-#: src/Lifecycle/Orders.php:217
+#: src/Lifecycle/Orders.php:233
 #, php-format
 msgid "License %1$s revoked: %2$s."
 msgstr ""
 
-#: src/Lifecycle/Orders.php:286
+#: src/Lifecycle/Orders.php:280
+msgid "A subscription line was refunded: no license was revoked, because this is not the order that started the subscription."
+msgstr ""
+
+#: src/Lifecycle/Orders.php:310
 msgid "its line was refunded"
 msgstr ""
 
-#: src/Lifecycle/Orders.php:318
+#: src/Lifecycle/Orders.php:342
 msgid "Cancelled: the order was fully refunded."
 msgstr ""
 
 #. translators: %s: error message.
-#: src/Lifecycle/Orders.php:322
+#: src/Lifecycle/Orders.php:346
 #, php-format
 msgid "Could not cancel after the refund: %s"
 msgstr ""
 
 #. translators: 1: license key, 2: subscription number.
-#: src/Lifecycle/Subscriptions.php:236
+#: src/Lifecycle/Subscriptions.php:237
 #, php-format
 msgid "License %1$s taken over from subscription #%2$d."
 msgstr ""
 
 #. translators: 1: license key, 2: subscription number.
-#: src/Lifecycle/Subscriptions.php:240
+#: src/Lifecycle/Subscriptions.php:241
 #, php-format
 msgid "License %1$s moved to subscription #%2$d (resubscribed)."
 msgstr ""
@@ -582,53 +586,53 @@ msgstr ""
 msgid "Beltoft Licenses needs WooCommerce to sell licenses. The license API keeps answering, but nothing new can be sold until WooCommerce is active."
 msgstr ""
 
-#: src/Product.php:118
+#: src/Product.php:120
 msgid "License"
 msgstr ""
 
-#: src/Product.php:140
+#: src/Product.php:142
 msgid "Licensed product"
 msgstr ""
 
-#: src/Product.php:141
+#: src/Product.php:143
 msgid "Issue a license key for each one sold."
 msgstr ""
 
-#: src/Product.php:148
+#: src/Product.php:150
 msgid "Software slug"
 msgstr ""
 
-#: src/Product.php:149
+#: src/Product.php:151
 msgid "The plugin or theme folder name. The license API and downloads use it."
 msgstr ""
 
-#: src/Product.php:157
-#: src/Product.php:217
+#: src/Product.php:159
+#: src/Product.php:219
 msgid "Sites per license"
 msgstr ""
 
-#: src/Product.php:158
+#: src/Product.php:160
 msgid "0 for unlimited. Variations can set their own."
 msgstr ""
 
-#: src/Product.php:169
+#: src/Product.php:171
 #: src/Releases/AdminScreen.php:136
 msgid "Current version"
 msgstr ""
 
-#: src/Product.php:170
+#: src/Product.php:172
 msgid "Set automatically when a release is published. Change it to roll back."
 msgstr ""
 
-#: src/Product.php:178
+#: src/Product.php:180
 msgid "Free plan"
 msgstr ""
 
-#: src/Product.php:179
+#: src/Product.php:181
 msgid "One license per customer, with no expiry. A second order reuses the first key."
 msgstr ""
 
-#: src/Product.php:218
+#: src/Product.php:220
 msgid "Empty uses the product's setting. 0 for unlimited."
 msgstr ""
 

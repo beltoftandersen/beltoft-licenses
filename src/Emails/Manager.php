@@ -101,9 +101,10 @@ final class Manager {
 			}
 		}
 
-		/* translators: 1: status (revoked or expired), 2: marker with the expiry. */
-		Events::add( (int) $license['id'], $type, sprintf( __( 'Customer emailed: license %1$s. %2$s', 'beltoft-licenses' ), $status, $marker ) );
-
-		$email->trigger( $license );
+		// Recorded only once the email went out, so a failed send is tried again on the next change.
+		if ( $email->trigger( $license ) ) {
+			/* translators: 1: status (revoked or expired), 2: marker with the expiry. */
+			Events::add( (int) $license['id'], $type, sprintf( __( 'Customer emailed: license %1$s. %2$s', 'beltoft-licenses' ), $status, $marker ) );
+		}
 	}
 }

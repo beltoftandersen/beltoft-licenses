@@ -33,17 +33,21 @@ abstract class LicenseEmail extends \WC_Email {
 	 * Sends the email for a license.
 	 *
 	 * @param array<string, mixed> $license License row.
+	 * @return bool Whether the email was sent (false when disabled or without a recipient).
 	 */
-	public function trigger( $license ): void {
+	public function trigger( $license ): bool {
 		$this->setup_locale();
 
 		$this->object                  = $license;
 		$this->recipient               = (string) $license['email'];
 		$this->placeholders['{product}'] = View::product_name( $license );
 
-		$this->send_notification();
+		$result = $this->send_notification();
 
 		$this->restore_locale();
+
+		// Older WooCommerce returns nothing from send_notification().
+		return null === $result || (bool) $result;
 	}
 
 	/**
