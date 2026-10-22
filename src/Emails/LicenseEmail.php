@@ -72,8 +72,10 @@ abstract class LicenseEmail extends \WC_Email {
 	 * @param bool $plain_text Plain text version.
 	 * @return array<string, mixed>
 	 */
-	private function args( bool $plain_text ): array {
-		return array(
+	protected function args( bool $plain_text ): array {
+		return array_merge(
+			$this->extra_args(),
+			array(
 			'license'            => $this->object,
 			'product'            => View::product_name( $this->object ),
 			'masked_key'         => self::masked_key( (string) $this->object['license_key'] ),
@@ -83,7 +85,17 @@ abstract class LicenseEmail extends \WC_Email {
 			'sent_to_admin'      => false,
 			'plain_text'         => $plain_text,
 			'email'              => $this,
+			)
 		);
+	}
+
+	/**
+	 * Template arguments a subclass adds.
+	 *
+	 * @return array<string, mixed>
+	 */
+	protected function extra_args(): array {
+		return array();
 	}
 
 	/**

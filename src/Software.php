@@ -227,7 +227,20 @@ final class Software {
 			return false;
 		}
 
+		$previous = (string) get_post_meta( $product_id, self::META_VERSION, true );
+
 		update_post_meta( $product_id, self::META_VERSION, $version );
+
+		if ( $previous !== $version && ( '' === $previous || version_compare( $version, $previous, '>' ) ) ) {
+			/**
+			 * A newer release became the current version. Not fired for a rollback to an older one.
+			 *
+			 * @param string $slug     Software slug.
+			 * @param string $version  New current version.
+			 * @param string $previous Previous current version, empty when there was none.
+			 */
+			do_action( 'beltoft_licenses_version_current', $slug, $version, $previous );
+		}
 
 		return true;
 	}
