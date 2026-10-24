@@ -56,6 +56,14 @@ final class View {
 			 * @param array<string, mixed> $license License.
 			 */
 			'show_key'     => (bool) apply_filters( 'beltoft_licenses_account_show_key', true, $license ),
+			/**
+			 * Whether My Account shows the "Sites" usage line. A plugin that shows the
+			 * license's resource in its own panel can hide it.
+			 *
+			 * @param bool                 $show    Show the line, default true.
+			 * @param array<string, mixed> $license License.
+			 */
+			'show_usage'   => (bool) apply_filters( 'beltoft_licenses_account_show_usage', true, $license ),
 			'domains'      => $domains,
 			'expiry'       => self::expiry_label( $license, $status ),
 			'version'      => (string) $version,

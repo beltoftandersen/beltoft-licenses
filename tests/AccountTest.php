@@ -170,6 +170,23 @@ class AccountTest extends TestCase {
 		$this->assertStringNotContainsString( 'License key', $html );
 	}
 
+	public function test_show_usage_filter_hides_the_sites_line_in_my_account(): void {
+		$l = $this->license( array( 'user_id' => $this->user ) );
+		wp_set_current_user( $this->user );
+		$this->assertTrue( View::license( $l )['show_usage'] );
+
+		ob_start();
+		Endpoint::render();
+		$this->assertStringContainsString( '<dt>Sites</dt>', (string) ob_get_clean() );
+
+		add_filter( 'beltoft_licenses_account_show_usage', '__return_false' );
+		$this->assertFalse( View::license( $l )['show_usage'] );
+
+		ob_start();
+		Endpoint::render();
+		$this->assertStringNotContainsString( '<dt>Sites</dt>', (string) ob_get_clean() );
+	}
+
 	public function test_domains_list_sites_only(): void {
 		$l = $this->license( array( 'max_activations' => 5 ) );
 		Licenses::activate( $l, 'shop.example' );

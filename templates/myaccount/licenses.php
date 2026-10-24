@@ -35,8 +35,10 @@ endif;
 					</dd>
 				<?php endif; ?>
 
-				<dt><?php esc_html_e( 'Sites', 'beltoft-licenses' ); ?></dt>
-				<dd><?php echo esc_html( $beltoft_licenses_view['sites'] ); ?></dd>
+				<?php if ( $beltoft_licenses_view['show_usage'] ) : ?>
+					<dt><?php esc_html_e( 'Sites', 'beltoft-licenses' ); ?></dt>
+					<dd><?php echo esc_html( $beltoft_licenses_view['sites'] ); ?></dd>
+				<?php endif; ?>
 
 				<dt><?php esc_html_e( 'Valid', 'beltoft-licenses' ); ?></dt>
 				<dd><?php echo esc_html( $beltoft_licenses_view['expiry'] ); ?></dd>
