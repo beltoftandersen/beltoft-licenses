@@ -41,7 +41,14 @@ final class View {
 			'license'      => $license,
 			'id'           => (int) $license['id'],
 			'key'          => (string) $license['license_key'],
-			'product'      => self::product_name( $license ),
+			/**
+			 * Filters the heading of a license on the My Account pages. The product name is the
+			 * default; a service can show what the license is for instead (a domain name).
+			 *
+			 * @param string               $title   Heading.
+			 * @param array<string, mixed> $license License row.
+			 */
+			'product'      => (string) apply_filters( 'beltoft_licenses_account_title', self::product_name( $license ), $license ),
 			'status'       => $status,
 			'status_label' => self::status_label( $status ),
 			'active'       => $active,

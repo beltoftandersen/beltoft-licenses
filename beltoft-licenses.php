@@ -3,7 +3,7 @@
  * Plugin Name:          Beltoft Licenses for WooCommerce
  * Plugin URI:           https://beltoft.net/
  * Description:          Sell software licenses with WooCommerce and WooCommerce Subscriptions: license keys, site activations, a license API for your plugins, and update downloads.
- * Version:              0.8.0
+ * Version:              0.8.1
  * Requires at least:    6.5
  * Requires PHP:         8.1
  * Requires Plugins:     woocommerce
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 define( 'BELTOFT_LICENSES_FILE', __FILE__ );
 define( 'BELTOFT_LICENSES_PATH', plugin_dir_path( __FILE__ ) );
-define( 'BELTOFT_LICENSES_VERSION', '0.8.0' );
+define( 'BELTOFT_LICENSES_VERSION', '0.8.1' );
 
 spl_autoload_register(
 	static function ( $class_name ) {

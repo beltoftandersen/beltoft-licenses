@@ -210,6 +210,15 @@ class AccountTest extends TestCase {
 		$this->assertArrayHasKey( 'my-keys', Endpoint::query_vars( array() ) );
 	}
 
+	public function test_account_heading_can_be_replaced_by_a_filter(): void {
+		$l = $this->license( array( 'user_id' => $this->user ) );
+		$this->assertNotSame( 'example.com', View::license( $l )['product'] );
+
+		add_filter( 'beltoft_licenses_account_title', static fn( $title, $license ) => (int) $license['id'] === (int) $l['id'] ? 'example.com' : $title, 10, 2 );
+
+		$this->assertSame( 'example.com', View::license( $l )['product'] );
+	}
+
 	public function test_order_pages_and_emails_follow_the_show_key_filter(): void {
 		$order = wc_create_order();
 		$order->set_billing_email( 'me@example.org' );
