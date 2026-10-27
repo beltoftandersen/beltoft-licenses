@@ -8,12 +8,13 @@
  *
  * @var array<int, array<string, mixed>> $licenses    Display values, see BeltoftLicenses\Account\View::license().
  * @var string                           $account_url This page's URL.
+ * @var string                           $empty       Text for an empty tab (optional; a default is used).
  */
 
 defined( 'ABSPATH' ) || exit;
 
 if ( ! $licenses ) : ?>
-	<p class="beltoft-licenses__empty"><?php esc_html_e( 'You have no licenses yet.', 'beltoft-licenses' ); ?></p>
+	<p class="beltoft-licenses__empty"><?php echo esc_html( ! empty( $empty ) ? $empty : __( 'You have no licenses yet.', 'beltoft-licenses' ) ); ?></p>
 	<?php
 	return;
 endif;

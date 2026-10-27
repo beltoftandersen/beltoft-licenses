@@ -79,7 +79,7 @@ abstract class LicenseEmail extends \WC_Email {
 				'license'            => $this->object,
 				'product'            => View::product_name( $this->object ),
 				'masked_key'         => self::masked_key( (string) $this->object['license_key'] ),
-				'account_url'        => function_exists( 'wc_get_account_endpoint_url' ) ? wc_get_account_endpoint_url( Endpoint::slug() ) : '',
+				'account_url'        => function_exists( 'wc_get_account_endpoint_url' ) ? Endpoint::url_for_license( (array) $this->object ) : '',
 				'email_heading'      => $this->get_heading(),
 				'additional_content' => $this->get_additional_content(),
 				'sent_to_admin'      => false,

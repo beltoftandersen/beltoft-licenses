@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.7.3
+Stable tag: 0.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.0 =
+* Extra My Account tabs: the filter `beltoft_licenses_account_groups` lets a plugin add a tab (slug, label, a match rule, optional empty text) that holds the licenses it claims. A license shows on one tab only, a tab with nothing in it is hidden, and the licenses tab stays when it is the only one. License and subscription emails link to the tab the license lives on.
 
 = 0.7.3 =
 * License keys on the order page, the order view and order emails now follow the `beltoft_licenses_account_show_key` filter, as the account page already did. A plugin that provides a service can keep its internal keys off customer orders.

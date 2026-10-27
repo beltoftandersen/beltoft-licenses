@@ -87,7 +87,7 @@ final class SubscriptionEmails {
 			return;
 		}
 
-		$manage = wc_get_account_endpoint_url( Endpoint::slug() );
+		$manage = Endpoint::url_for_license( (array) reset( $licenses ) );
 
 		if ( $plain_text ) {
 			echo "\n" . esc_html( strtoupper( __( 'Licenses', 'beltoft-licenses' ) ) ) . "\n\n";

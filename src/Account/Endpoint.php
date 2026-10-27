@@ -27,6 +27,11 @@ final class Endpoint {
 	public const OPTION_FLUSH = 'beltoft_licenses_flush_rewrites';
 
 	/**
+	 * Option holding a hash of the extra tabs' slugs, so rewrite rules are flushed when they change.
+	 */
+	public const OPTION_GROUPS = 'beltoft_licenses_account_groups';
+
+	/**
 	 * Hooks.
 	 */
 	public static function register(): void {
@@ -38,6 +43,7 @@ final class Endpoint {
 		add_action( 'woocommerce_account_' . $slug . '_endpoint', array( __CLASS__, 'render' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'handle' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'styles' ) );
+		add_action( 'init', array( __CLASS__, 'register_groups' ), 20 );
 		add_action( 'init', array( __CLASS__, 'maybe_flush' ), 99 );
 		add_action( 'update_option_' . Settings::OPTION, array( __CLASS__, 'settings_saved' ), 10, 2 );
 	}
@@ -60,6 +66,10 @@ final class Endpoint {
 	public static function query_vars( array $vars ): array {
 		$vars[ self::slug() ] = self::slug();
 
+		foreach ( array_keys( self::groups() ) as $slug ) {
+			$vars[ $slug ] = $slug;
+		}
+
 		return $vars;
 	}
 
@@ -74,14 +84,137 @@ final class Endpoint {
 		$logout = isset( $items['customer-logout'] ) ? array( 'customer-logout' => $items['customer-logout'] ) : array();
 		unset( $items['customer-logout'] );
 
-		$items[ self::slug() ] = '' !== $label ? $label : __( 'Licenses', 'beltoft-licenses' );
+		$groups = self::groups();
+		$show   = true;
+
+		if ( $groups ) {
+			$tabs  = self::split( self::licenses_for_user( get_current_user_id() ) );
+			$other = false;
+
+			foreach ( $groups as $slug => $group ) {
+				if ( $tabs[ $slug ] ) {
+					$items[ $slug ] = $group['label'];
+					$other          = true;
+				}
+			}
+
+			// A tab with nothing in it is hidden; the licenses tab stays when it is the only one.
+			$show = ! $other || (bool) $tabs[''];
+		}
+
+		if ( $show ) {
+			$items[ self::slug() ] = '' !== $label ? $label : __( 'Licenses', 'beltoft-licenses' );
+		}
 
 		return $items + $logout;
 	}
 
 	/**
-	 * Page title.
+	 * Extra My Account tabs that other plugins add, each holding the licenses it claims. A group
+	 * is array( slug, label, match (callable taking a license row), empty (text for an empty
+	 * tab, optional) ). A license goes to the first group that matches it; the rest stay on the
+	 * licenses tab.
+	 *
+	 * @return array<string, array{slug: string, label: string, match: callable, empty: string}>
 	 */
+	public static function groups(): array {
+		$groups = array();
+
+		/**
+		 * Filters the extra My Account tabs.
+		 *
+		 * @param array<int, array<string, mixed>> $groups Groups: slug, label, match, empty.
+		 */
+		foreach ( (array) apply_filters( 'beltoft_licenses_account_groups', array() ) as $group ) {
+			$slug = is_array( $group ) ? sanitize_title( (string) ( $group['slug'] ?? '' ) ) : '';
+
+			if ( '' === $slug || self::slug() === $slug || isset( $groups[ $slug ] ) || ! is_callable( $group['match'] ?? null ) ) {
+				continue;
+			}
+
+			$label           = (string) ( $group['label'] ?? '' );
+			$groups[ $slug ] = array(
+				'slug'  => $slug,
+				'label' => '' !== $label ? $label : $slug,
+				'match' => $group['match'],
+				'empty' => (string) ( $group['empty'] ?? '' ),
+			);
+		}
+
+		return $groups;
+	}
+
+	/**
+	 * Every My Account endpoint of this plugin: the licenses tab and the extra tabs.
+	 *
+	 * @return array<int, string>
+	 */
+	public static function slugs(): array {
+		return array_merge( array( self::slug() ), array_keys( self::groups() ) );
+	}
+
+	/**
+	 * The tab a license lives on: a group's slug, or '' for the licenses tab.
+	 *
+	 * @param array<string, mixed> $license License row.
+	 */
+	private static function home_of( array $license ): string {
+		foreach ( self::groups() as $slug => $group ) {
+			if ( call_user_func( $group['match'], $license ) ) {
+				return $slug;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Licenses sorted by tab: '' is the licenses tab, the other keys are the groups' slugs.
+	 *
+	 * @param array<int, array<string, mixed>> $licenses License rows.
+	 * @return array<string, array<int, array<string, mixed>>>
+	 */
+	public static function split( array $licenses ): array {
+		$tabs = array( '' => array() ) + array_fill_keys( array_keys( self::groups() ), array() );
+
+		foreach ( $licenses as $license ) {
+			$tabs[ self::home_of( $license ) ][] = $license;
+		}
+
+		return $tabs;
+	}
+
+	/**
+	 * Address of the tab a license lives on.
+	 *
+	 * @param array<string, mixed> $license License row.
+	 */
+	public static function url_for_license( array $license ): string {
+		$home = self::home_of( $license );
+
+		return wc_get_account_endpoint_url( '' !== $home ? $home : self::slug() );
+	}
+
+	/**
+	 * Output and title for each extra tab.
+	 */
+	public static function register_groups(): void {
+		foreach ( self::groups() as $slug => $group ) {
+			add_action(
+				'woocommerce_account_' . $slug . '_endpoint',
+				static function () use ( $slug ): void {
+					self::output( $slug );
+				}
+			);
+			add_filter(
+				'woocommerce_endpoint_' . $slug . '_title',
+				static function () use ( $group ): string {
+					return $group['label'];
+				}
+			);
+		}
+	}
+
 	public static function title(): string {
 		$label = (string) Settings::get( 'account_label' );
 
@@ -92,8 +225,11 @@ final class Endpoint {
 	 * Rewrite rules are flushed once after activation or a slug change, not on every request.
 	 */
 	public static function maybe_flush(): void {
-		if ( get_option( self::OPTION_FLUSH ) ) {
+		$hash = md5( implode( ',', array_keys( self::groups() ) ) );
+
+		if ( get_option( self::OPTION_FLUSH ) || get_option( self::OPTION_GROUPS ) !== $hash ) {
 			delete_option( self::OPTION_FLUSH );
+			update_option( self::OPTION_GROUPS, $hash, false );
 			flush_rewrite_rules( false );
 		}
 	}
@@ -164,7 +300,18 @@ final class Endpoint {
 	 * The page content.
 	 */
 	public static function render(): void {
-		$views = array_map( array( View::class, 'license' ), self::licenses_for_user( get_current_user_id() ) );
+		self::output( '' );
+	}
+
+	/**
+	 * One tab's list: '' for the licenses tab, or an extra tab's slug.
+	 *
+	 * @param string $tab Tab.
+	 */
+	private static function output( string $tab ): void {
+		$groups = self::groups();
+		$tabs   = self::split( self::licenses_for_user( get_current_user_id() ) );
+		$views  = array_map( array( View::class, 'license' ), $tabs[ $tab ] ?? array() );
 
 		// Feedback from "Free this site" and downloads. Themes that print WooCommerce notices
 		// earlier on the page have cleared them by now, so nothing shows twice; themes that
@@ -179,7 +326,8 @@ final class Endpoint {
 			'myaccount/licenses.php',
 			array(
 				'licenses'    => $views,
-				'account_url' => wc_get_account_endpoint_url( self::slug() ),
+				'account_url' => wc_get_account_endpoint_url( '' !== $tab ? $tab : self::slug() ),
+				'empty'       => '' !== $tab ? (string) ( $groups[ $tab ]['empty'] ?? '' ) : '',
 			),
 			'beltoft-licenses/',
 			BELTOFT_LICENSES_PATH . 'templates/'
@@ -191,7 +339,7 @@ final class Endpoint {
 	 * beltoft_licenses_account_css filter.
 	 */
 	public static function styles(): void {
-		if ( ! function_exists( 'is_wc_endpoint_url' ) || ! is_wc_endpoint_url( self::slug() ) || ! apply_filters( 'beltoft_licenses_account_css', true ) ) {
+		if ( ! function_exists( 'is_wc_endpoint_url' ) || ! array_filter( array_map( 'is_wc_endpoint_url', self::slugs() ) ) || ! apply_filters( 'beltoft_licenses_account_css', true ) ) {
 			return;
 		}
 
