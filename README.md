@@ -6,7 +6,7 @@ See [readme.txt](readme.txt) for the user documentation and the license API.
 
 ## Status
 
-`0.7.2`: customers get a "New version available" email, sent in the background, when a newer release becomes current. Before it, `0.7.1`: fixes from checkout testing (keys in the first order email, refunds, resubscribe, reactivation, customer emails for revoked and expired licenses). Before it, `0.7.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the expiry job (daily or hourly), releases (upload screen and GitHub webhook), My Account → Licenses, the admin license screens, `wp beltoft-licenses import`, and activation kinds with a resource API for plugins built on top.
+`0.7.3`: license keys on order pages and order emails follow the `beltoft_licenses_account_show_key` filter, so service plugins can hide their internal keys. Before it, `0.7.2`: customers get a "New version available" email, sent in the background, when a newer release becomes current. Before it, `0.7.1`: fixes from checkout testing (keys in the first order email, refunds, resubscribe, reactivation, customer emails for revoked and expired licenses). Before it, `0.7.0`: storage, settings (Settings → Licenses), the license API, licenses from orders and WooCommerce Subscriptions, the expiry job (daily or hourly), releases (upload screen and GitHub webhook), My Account → Licenses, the admin license screens, `wp beltoft-licenses import`, and activation kinds with a resource API for plugins built on top.
 
 ## Development
 

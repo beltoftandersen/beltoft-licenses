@@ -210,6 +210,24 @@ class AccountTest extends TestCase {
 		$this->assertArrayHasKey( 'my-keys', Endpoint::query_vars( array() ) );
 	}
 
+	public function test_order_pages_and_emails_follow_the_show_key_filter(): void {
+		$order = wc_create_order();
+		$order->set_billing_email( 'me@example.org' );
+		$order->set_status( 'processing' );
+		$order->save();
+		$shown = $this->license( array( 'order_id' => $order->get_id() ) );
+		$hidden = $this->license( array( 'order_id' => $order->get_id() ) );
+		add_filter( 'beltoft_licenses_account_show_key', static fn( $show, $license ) => (int) $license['id'] === (int) $hidden['id'] ? false : $show, 10, 2 );
+
+		foreach ( array( 'html' => array( $order ), 'email' => array( $order, false, true ) ) as $method => $args ) {
+			ob_start();
+			OrderLicenses::$method( ...$args );
+			$out = (string) ob_get_clean();
+			$this->assertStringContainsString( $shown['license_key'], $out, $method );
+			$this->assertStringNotContainsString( $hidden['license_key'], $out, $method );
+		}
+	}
+
 	public function test_order_pages_and_customer_emails_list_the_keys(): void {
 		$order = wc_create_order();
 		$order->set_billing_email( 'me@example.org' );

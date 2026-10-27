@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.7.2
+Stable tag: 0.7.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.7.3 =
+* License keys on the order page, the order view and order emails now follow the `beltoft_licenses_account_show_key` filter, as the account page already did. A plugin that provides a service can keep its internal keys off customer orders.
 
 = 0.7.2 =
 * Customer email "New version available": when a newer release becomes the current version, every customer with an active license for that software gets one email with the new version, a short changelog and a link to My Account → Licenses to download it. Sent in the background in batches through Action Scheduler, once per release, never for revoked, suspended or expired licenses, never for a rollback and never during an import. Editable under WooCommerce → Settings → Emails, where you can also switch it off. Pre-releases (a version with a suffix such as 2.5.0-beta) are not announced.

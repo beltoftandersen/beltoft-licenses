@@ -26,8 +26,8 @@ final class OrderLicenses {
 	}
 
 	/**
-	 * The order's licenses: issued for it, or linked to its line items (a free plan reusing an
-	 * earlier key).
+	 * The order's licenses that show a key: issued for it, or linked to its line items (a free
+	 * plan reusing an earlier key).
 	 *
 	 * @param \WC_Order $order Order.
 	 * @return array<int, array<string, mixed>>
@@ -49,6 +49,12 @@ final class OrderLicenses {
 		}
 
 		ksort( $licenses );
+
+		// The same filter the account page uses: a plugin that provides a service hides the key.
+		$licenses = array_filter(
+			$licenses,
+			static fn( array $license ): bool => (bool) apply_filters( 'beltoft_licenses_account_show_key', true, $license )
+		);
 
 		return array_values( $licenses );
 	}
