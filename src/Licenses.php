@@ -27,6 +27,10 @@ final class Licenses {
 	 * Creates a license. A key is generated unless one is given; a generated key that collides
 	 * with an existing one is regenerated.
 	 *
+	 * An `issue_key` marks what the license was issued for (an order item's unit, a subscription
+	 * item's unit). It is unique: a second license with the same marker is refused and null is
+	 * returned, so find_by_issue_key() then gives the one that already exists.
+	 *
 	 * @param array<string, mixed> $data Columns.
 	 * @return array<string, mixed>|null The new license, or null on failure.
 	 */
@@ -48,6 +52,7 @@ final class Licenses {
 			'subscription_id' => isset( $data['subscription_id'] ) ? (int) $data['subscription_id'] : null,
 			'source'          => sanitize_key( (string) ( $data['source'] ?? 'manual' ) ),
 			'external_id'     => isset( $data['external_id'] ) ? (string) $data['external_id'] : null,
+			'issue_key'       => isset( $data['issue_key'] ) && '' !== (string) $data['issue_key'] ? substr( (string) $data['issue_key'], 0, 64 ) : null,
 			'created_at'      => $now,
 			'updated_at'      => $now,
 		);
@@ -75,12 +80,28 @@ final class Licenses {
 				return $license;
 			}
 
-			if ( ! $generate ) {
+			if ( ! $generate || ( null !== $row['issue_key'] && self::find_by_issue_key( $row['issue_key'] ) ) ) {
 				return null;
 			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * The license issued for a marker (see create()).
+	 *
+	 * @param string $issue_key Marker.
+	 * @return array<string, mixed>|null
+	 */
+	public static function find_by_issue_key( string $issue_key ): ?array {
+		global $wpdb;
+
+		$table = Install::tables()['licenses'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE issue_key = %s', $table, $issue_key ), ARRAY_A );
+
+		return $row ? self::hydrate( $row ) : null;
 	}
 
 	/**
@@ -770,6 +791,9 @@ final class Licenses {
 	 * @return array<string, mixed>
 	 */
 	public static function hydrate( array $row ): array {
+		// An internal marker, not part of a license's public shape.
+		unset( $row['issue_key'] );
+
 		foreach ( array( 'id', 'max_activations' ) as $int ) {
 			$row[ $int ] = (int) $row[ $int ];
 		}

@@ -137,7 +137,7 @@ final class SchemaV3Test extends TestCase {
 		$this->assertSame( array( 'site', 'site' ), $kinds );
 
 		$this->assertSame( array( 'license_id', 'kind', 'live_domain' ), array_keys( $this->live_key() ) );
-		$this->assertSame( '3', get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
 
 		$before = $wpdb->get_results( "SELECT * FROM $table ORDER BY id", ARRAY_A );
 		Install::maybe_upgrade();
@@ -162,7 +162,7 @@ final class SchemaV3Test extends TestCase {
 			),
 			$this->live_key()
 		);
-		$this->assertSame( '3', get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
 
 		// A site and a resource with the same text are both live.
 		$license = $this->license();
@@ -179,7 +179,7 @@ final class SchemaV3Test extends TestCase {
 		Install::activate();
 
 		$this->assertSame( '191', $this->live_key()['live_domain'] );
-		$this->assertSame( '3', get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
 	}
 
 	public function test_the_version_waits_until_the_new_key_exists(): void {
@@ -202,7 +202,7 @@ final class SchemaV3Test extends TestCase {
 		Install::maybe_upgrade();
 
 		$this->assertSame( array( 'license_id', 'kind', 'live_domain' ), array_keys( $this->live_key() ) );
-		$this->assertSame( '3', get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
 	}
 
 	public function test_rest_deactivate_cannot_close_a_resource(): void {

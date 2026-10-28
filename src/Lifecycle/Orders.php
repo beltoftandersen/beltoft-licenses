@@ -8,6 +8,7 @@
 namespace BeltoftLicenses\Lifecycle;
 
 use BeltoftLicenses\Licenses;
+use BeltoftLicenses\Locks;
 use BeltoftLicenses\Product;
 use BeltoftLicenses\Settings;
 
@@ -23,12 +24,30 @@ final class Orders {
 	public const ITEM_META = '_beltoft_licenses_ids';
 
 	/**
+	 * Action Scheduler hook (group beltoft-licenses) that issues again when the lock was busy.
+	 */
+	public const RETRY_HOOK = 'beltoft_licenses_retry_issue';
+
+	/**
+	 * Tries a busy lock this many times (30 seconds apart) before leaving a note for the admin.
+	 */
+	public const MAX_RETRIES = 10;
+
+	/**
+	 * The retry attempt being run (0 outside a retry).
+	 *
+	 * @var int
+	 */
+	private static $attempt = 0;
+
+	/**
 	 * Hooks.
 	 */
 	public static function register(): void {
 		add_action( 'woocommerce_payment_complete', array( __CLASS__, 'issue_for_order_id' ) );
 		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'issue_for_order_id' ) );
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'issue_for_order_id' ) );
+		add_action( self::RETRY_HOOK, array( __CLASS__, 'retry' ), 10, 2 );
 		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'revoke_for_order_id' ) );
 		add_action( 'woocommerce_order_fully_refunded', array( __CLASS__, 'cancel_subscriptions_for_order_id' ), 20 );
 		add_action( 'woocommerce_order_refunded', array( __CLASS__, 'revoke_for_refunded_lines' ), 10, 2 );
@@ -69,12 +88,21 @@ final class Orders {
 			// as unpaid, or a gateway filter), the key must not be perpetual: it gets the grace period, as
 			// an on-hold subscription does, and Subscriptions::activated() clears it when the subscription starts.
 			if ( $issued && 'active' !== $subscription->get_status() ) {
-				$until = time() + DAY_IN_SECONDS * max( 1, (int) Settings::get( 'grace_days' ) );
-
-				foreach ( $issued as $license ) {
-					Licenses::update( (int) $license['id'], array( 'expires_at' => $until ) );
-				}
+				self::grace( $issued );
 			}
+		}
+	}
+
+	/**
+	 * Gives freshly issued licenses the grace period as their expiry.
+	 *
+	 * @param array<int, array<string, mixed>> $licenses Licenses.
+	 */
+	public static function grace( array $licenses ): void {
+		$until = time() + DAY_IN_SECONDS * max( 1, (int) Settings::get( 'grace_days' ) );
+
+		foreach ( $licenses as $license ) {
+			Licenses::update( (int) $license['id'], array( 'expires_at' => $until ) );
 		}
 	}
 
@@ -126,23 +154,20 @@ final class Orders {
 				continue;
 			}
 
-			$ids     = array_filter( array_map( 'intval', (array) $item->get_meta( self::ITEM_META ) ) );
-			$wanted  = Product::is_free_plan( $product ) ? 1 : max( 1, (int) $item->get_quantity() );
-			$missing = $wanted - count( $ids );
+			list( $locked, $new ) = Locks::with(
+				Locks::name( 'item', (int) $item->get_id() ),
+				Locks::wait(),
+				fn() => self::issue_item( $order, $item, $product )
+			);
 
-			for ( $i = 0; $i < $missing; $i++ ) {
-				list( $license, $is_new ) = self::license_for( $order, $item, $product );
-
-				if ( $license ) {
-					$ids[] = (int) $license['id'];
-					if ( $is_new ) {
-						$issued[] = $license;
-					}
-				}
+			if ( ! $locked ) {
+				// Another request is issuing for this item right now. Never create without the
+				// lock: try again shortly.
+				self::defer( (int) $order->get_id() );
+				continue;
 			}
 
-			$item->update_meta_data( self::ITEM_META, array_values( array_unique( $ids ) ) );
-			$item->save();
+			$issued = array_merge( $issued, $new );
 		}
 
 		foreach ( $issued as $license ) {
@@ -154,14 +179,108 @@ final class Orders {
 	}
 
 	/**
+	 * Issues the missing licenses of one line item. Runs under the item's lock, so what it reads
+	 * is what the other request left: the item is read afresh, and each unit carries a unique
+	 * marker, so even a missed lock could not create a second license for the same unit.
+	 *
+	 * @param \WC_Order              $order   Order.
+	 * @param \WC_Order_Item_Product $item    Line item (possibly stale).
+	 * @param \WC_Product            $product Product or variation.
+	 * @return array<int, array<string, mixed>> Licenses issued now.
+	 */
+	private static function issue_item( \WC_Order $order, \WC_Order_Item_Product $item, \WC_Product $product ): array {
+		$fresh = $item->get_id() ? \WC_Order_Factory::get_order_item( $item->get_id() ) : null;
+		$work  = $fresh instanceof \WC_Order_Item_Product ? $fresh : $item;
+
+		$ids     = array_filter( array_map( 'intval', (array) $work->get_meta( self::ITEM_META ) ) );
+		$wanted  = Product::is_free_plan( $product ) ? 1 : max( 1, (int) $work->get_quantity() );
+		$missing = $wanted - count( $ids );
+		$issued  = array();
+
+		for ( $i = 0; $i < $missing; $i++ ) {
+			list( $license, $is_new ) = self::license_for( $order, $work, $product, count( $ids ) + 1 );
+
+			if ( $license ) {
+				$ids[] = (int) $license['id'];
+				if ( $is_new ) {
+					$issued[] = $license;
+				}
+			}
+		}
+
+		$work->update_meta_data( self::ITEM_META, array_values( array_unique( $ids ) ) );
+		$work->save();
+
+		if ( $work !== $item ) {
+			$item->read_meta_data( true );
+		}
+
+		return $issued;
+	}
+
+	/**
+	 * Tries issuing again later, through Action Scheduler (WP-Cron without it). Gives up after
+	 * MAX_RETRIES with a note on the order.
+	 *
+	 * @param int $order_id Order ID.
+	 */
+	private static function defer( int $order_id ): void {
+		$attempt = self::$attempt + 1;
+
+		if ( $attempt > self::MAX_RETRIES ) {
+			$order = wc_get_order( $order_id );
+
+			if ( $order instanceof \WC_Order ) {
+				$order->add_order_note( __( 'Licenses could not be issued: another request kept the lock. Issue them from the license box of this order.', 'beltoft-licenses' ) );
+			}
+
+			return;
+		}
+
+		$args = array( $order_id, $attempt );
+		$when = time() + 30;
+
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RETRY_HOOK, array( $order_id, $attempt ), 'beltoft-licenses' ) ) {
+				as_schedule_single_action( $when, self::RETRY_HOOK, $args, 'beltoft-licenses' );
+			}
+		} elseif ( ! wp_next_scheduled( self::RETRY_HOOK, $args ) ) {
+			wp_schedule_single_event( $when, self::RETRY_HOOK, $args );
+		}
+	}
+
+	/**
+	 * The scheduled retry: issues for the order again. A lock still busy defers again.
+	 *
+	 * @param int $order_id Order ID.
+	 * @param int $attempt  Which attempt this is.
+	 */
+	public static function retry( $order_id, $attempt = 1 ): void {
+		$order = wc_get_order( (int) $order_id );
+
+		if ( ! $order instanceof \WC_Order || $order instanceof \WC_Subscription || ! $order->is_paid() ) {
+			return;
+		}
+
+		self::$attempt = (int) $attempt;
+
+		try {
+			self::issue( $order );
+		} finally {
+			self::$attempt = 0;
+		}
+	}
+
+	/**
 	 * A new license for one unit, or the customer's existing one for a free plan.
 	 *
 	 * @param \WC_Order              $order   Order.
 	 * @param \WC_Order_Item_Product $item    Line item.
 	 * @param \WC_Product            $product Product or variation.
+	 * @param int                    $unit    Which unit of the line this is, from 1.
 	 * @return array{0: array<string, mixed>|null, 1: bool} The license, and whether it is new.
 	 */
-	private static function license_for( \WC_Order $order, \WC_Order_Item_Product $item, \WC_Product $product ): array {
+	private static function license_for( \WC_Order $order, \WC_Order_Item_Product $item, \WC_Product $product, int $unit ): array {
 		$slug = Product::slug( $product );
 
 		if ( Product::is_free_plan( $product ) ) {
@@ -184,8 +303,14 @@ final class Orders {
 				'variation_id'    => $item->get_variation_id() ? (int) $item->get_variation_id() : null,
 				'order_id'        => (int) $order->get_id(),
 				'source'          => Product::is_free_plan( $product ) ? 'free' : 'order',
+				'issue_key'       => $item->get_id() ? 'oi' . $item->get_id() . '-' . $unit : null,
 			)
 		);
+
+		if ( ! $license && $item->get_id() ) {
+			// The marker is taken: this unit already has its license.
+			return array( Licenses::find_by_issue_key( 'oi' . $item->get_id() . '-' . $unit ), false );
+		}
 
 		return array( $license, null !== $license );
 	}

@@ -8,6 +8,7 @@
 namespace BeltoftLicenses\Lifecycle;
 
 use BeltoftLicenses\Licenses;
+use BeltoftLicenses\Locks;
 use BeltoftLicenses\Product;
 use BeltoftLicenses\Settings;
 
@@ -23,6 +24,23 @@ defined( 'ABSPATH' ) || exit;
 final class Subscriptions {
 
 	/**
+	 * Action Scheduler hook (group beltoft-licenses) that issues again when the lock was busy.
+	 */
+	public const RETRY_HOOK = 'beltoft_licenses_retry_issue_subscription';
+
+	/**
+	 * Tries a busy lock this many times (30 seconds apart).
+	 */
+	public const MAX_RETRIES = 10;
+
+	/**
+	 * The retry attempt being run (0 outside a retry).
+	 *
+	 * @var int
+	 */
+	private static $attempt = 0;
+
+	/**
 	 * Hooks, only when WooCommerce Subscriptions is active.
 	 */
 	public static function register(): void {
@@ -30,6 +48,7 @@ final class Subscriptions {
 			return;
 		}
 
+		add_action( self::RETRY_HOOK, array( __CLASS__, 'retry' ), 10, 2 );
 		add_action( 'woocommerce_subscription_status_active', array( __CLASS__, 'activated' ) );
 		add_action( 'woocommerce_subscription_renewal_payment_complete', array( __CLASS__, 'renewed' ) );
 		add_action( 'woocommerce_subscription_status_on-hold', array( __CLASS__, 'on_hold' ) );
@@ -122,6 +141,30 @@ final class Subscriptions {
 	 * @return array<int, array<string, mixed>> Licenses issued now.
 	 */
 	public static function issue( $subscription ): array {
+		list( $locked, $issued ) = Locks::with(
+			Locks::name( 'sub', (int) $subscription->get_id() ),
+			Locks::wait(),
+			fn() => self::issue_locked( $subscription )
+		);
+
+		if ( ! $locked ) {
+			// Another request is issuing for this subscription right now (a renewal and the
+			// activation, say). Never create without the lock: try again shortly.
+			self::defer( (int) $subscription->get_id() );
+			return array();
+		}
+
+		return $issued;
+	}
+
+	/**
+	 * The body of issue(), run under the subscription's lock. Each unit carries a unique
+	 * marker, so even a missed lock could not create a second license for the same unit.
+	 *
+	 * @param object $subscription WC_Subscription.
+	 * @return array<int, array<string, mixed>> Licenses issued now.
+	 */
+	private static function issue_locked( $subscription ): array {
 		$existing = Licenses::where( 'subscription_id', (int) $subscription->get_id() );
 		$issued   = array();
 		$old      = self::resubscribed_from( $subscription );
@@ -139,6 +182,7 @@ final class Subscriptions {
 					continue;
 				}
 
+				$marker  = 's' . (int) $subscription->get_id() . '-i' . (int) $item->get_id() . '-' . ( $i + 1 );
 				$license = Licenses::create(
 					array(
 						'product_slug'    => $slug,
@@ -150,6 +194,7 @@ final class Subscriptions {
 						'order_id'        => $subscription->get_parent_id() ? (int) $subscription->get_parent_id() : null,
 						'subscription_id' => (int) $subscription->get_id(),
 						'source'          => 'order',
+						'issue_key'       => $marker,
 					)
 				);
 
@@ -162,6 +207,63 @@ final class Subscriptions {
 		}
 
 		return $issued;
+	}
+
+	/**
+	 * Tries issuing again later, through Action Scheduler (WP-Cron without it). Gives up after
+	 * MAX_RETRIES with a note on the subscription.
+	 *
+	 * @param int $subscription_id Subscription ID.
+	 */
+	private static function defer( int $subscription_id ): void {
+		$attempt = self::$attempt + 1;
+
+		if ( $attempt > self::MAX_RETRIES ) {
+			$subscription = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( $subscription_id ) : null;
+
+			if ( is_object( $subscription ) ) {
+				$subscription->add_order_note( __( 'Licenses could not be issued: another request kept the lock. Issue them from the license box of this subscription.', 'beltoft-licenses' ) );
+			}
+
+			return;
+		}
+
+		$args = array( $subscription_id, $attempt );
+
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RETRY_HOOK, $args, 'beltoft-licenses' ) ) {
+				as_schedule_single_action( time() + 30, self::RETRY_HOOK, $args, 'beltoft-licenses' );
+			}
+		} elseif ( ! wp_next_scheduled( self::RETRY_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 30, self::RETRY_HOOK, $args );
+		}
+	}
+
+	/**
+	 * The scheduled retry. An active subscription takes the whole activation path (issue, limits,
+	 * expiry); any other issues and gives the new licenses the grace period, as the order path does.
+	 *
+	 * @param int $subscription_id Subscription ID.
+	 * @param int $attempt         Which attempt this is.
+	 */
+	public static function retry( $subscription_id, $attempt = 1 ): void {
+		$subscription = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( (int) $subscription_id ) : null;
+
+		if ( ! is_object( $subscription ) ) {
+			return;
+		}
+
+		self::$attempt = (int) $attempt;
+
+		try {
+			if ( 'active' === $subscription->get_status() ) {
+				self::activated( $subscription );
+			} elseif ( in_array( $subscription->get_status(), array( 'pending', 'on-hold' ), true ) ) {
+				Orders::grace( self::issue( $subscription ) );
+			}
+		} finally {
+			self::$attempt = 0;
+		}
 	}
 
 	/**

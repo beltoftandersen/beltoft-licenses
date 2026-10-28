@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Install {
 
-	public const DB_VERSION        = '3';
+	public const DB_VERSION        = '4';
 	public const OPTION_DB_VERSION = 'beltoft_licenses_db_version';
 	public const OPTION_SECRET     = 'beltoft_licenses_token_secret';
 
@@ -65,6 +65,8 @@ final class Install {
 	 */
 	public static function maybe_upgrade(): void {
 		if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
+			// Existing duplicates are only reported, never changed (and cannot block the new unique key: it starts empty).
+			Duplicates::schedule_scan();
 			self::create_tables();
 			self::ensure_secret();
 			// An update never runs the activation hook: rules for new endpoints come from here.
@@ -92,6 +94,20 @@ final class Install {
 		}
 
 		return $key;
+	}
+
+	/**
+	 * Whether the licenses table has the unique key `issue_key` (schema 4).
+	 */
+	public static function has_issue_key(): bool {
+		global $wpdb;
+
+		$suppress = $wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema check on our own table.
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SHOW INDEX FROM %i WHERE Key_name = %s AND Non_unique = 0', self::tables()['licenses'], 'issue_key' ), ARRAY_A );
+		$wpdb->suppress_errors( $suppress );
+
+		return ! empty( $rows );
 	}
 
 	/**
@@ -145,11 +161,13 @@ final class Install {
 				subscription_id bigint(20) unsigned NULL DEFAULT NULL,
 				source varchar(20) NOT NULL DEFAULT 'manual',
 				external_id varchar(64) NULL DEFAULT NULL,
+				issue_key varchar(64) NULL DEFAULT NULL,
 				created_at datetime NOT NULL,
 				updated_at datetime NOT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY license_key (license_key),
 				UNIQUE KEY external_id (external_id),
+				UNIQUE KEY issue_key (issue_key),
 				KEY status (status),
 				KEY product_slug (product_slug),
 				KEY user_id (user_id),
@@ -212,7 +230,7 @@ final class Install {
 			) $collate;"
 		);
 
-		if ( self::LIVE_KEY === self::live_key() ) {
+		if ( self::LIVE_KEY === self::live_key() && self::has_issue_key() ) {
 			update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
 		}
 	}

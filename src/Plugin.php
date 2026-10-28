@@ -24,6 +24,7 @@ final class Plugin {
 		Settings::register();
 		Software::register();
 		Events::register();
+		Duplicates::register();
 		Api\Router::register();
 
 		if ( ! class_exists( 'WooCommerce' ) ) {
