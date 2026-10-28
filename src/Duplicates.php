@@ -17,6 +17,7 @@ defined( 'ABSPATH' ) || exit;
 final class Duplicates {
 
 	public const OPTION  = 'beltoft_licenses_duplicates';
+	public const OPTION_SCANNED = 'beltoft_licenses_duplicates_scanned';
 	public const DISMISS = 'beltoft_licenses_dismiss_duplicates';
 
 	/**
@@ -113,6 +114,13 @@ final class Duplicates {
 	 * post types exist). Without WooCommerce it scans at once and reports every group.
 	 */
 	public static function schedule_scan(): void {
+		// Once per upgrade attempt, not on every request while the version is behind.
+		if ( Install::DB_VERSION === get_option( self::OPTION_SCANNED ) ) {
+			return;
+		}
+
+		update_option( self::OPTION_SCANNED, Install::DB_VERSION, false );
+
 		if ( ! class_exists( 'WooCommerce' ) || did_action( 'woocommerce_after_register_post_type' ) ) {
 			self::scan_and_store();
 		} else {

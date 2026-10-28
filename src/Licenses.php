@@ -57,6 +57,11 @@ final class Licenses {
 			'updated_at'      => $now,
 		);
 
+		// Only sent when given, so a schema 3 table (upgrade not done yet) still accepts every create.
+		if ( null === $row['issue_key'] ) {
+			unset( $row['issue_key'] );
+		}
+
 		$generate = '' === $row['license_key'];
 
 		for ( $attempt = 0; $attempt < 5; $attempt++ ) {
@@ -80,12 +85,26 @@ final class Licenses {
 				return $license;
 			}
 
-			if ( ! $generate || ( null !== $row['issue_key'] && self::find_by_issue_key( $row['issue_key'] ) ) ) {
+			if ( ! $generate || ( isset( $row['issue_key'] ) && self::find_by_issue_key( $row['issue_key'] ) ) ) {
 				return null;
 			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * The markers that start with a prefix, e.g. every unit of one subscription item.
+	 *
+	 * @param string $prefix Marker prefix.
+	 * @return array<int, string>
+	 */
+	public static function issue_keys( string $prefix ): array {
+		global $wpdb;
+
+		$table = Install::tables()['licenses'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		return array_map( 'strval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT issue_key FROM %i WHERE issue_key LIKE %s', $table, $wpdb->esc_like( $prefix ) . '%' ) ) );
 	}
 
 	/**

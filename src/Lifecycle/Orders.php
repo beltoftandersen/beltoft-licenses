@@ -228,12 +228,7 @@ final class Orders {
 		$attempt = self::$attempt + 1;
 
 		if ( $attempt > self::MAX_RETRIES ) {
-			$order = wc_get_order( $order_id );
-
-			if ( $order instanceof \WC_Order ) {
-				$order->add_order_note( __( 'Licenses could not be issued: another request kept the lock. Issue them from the license box of this order.', 'beltoft-licenses' ) );
-			}
-
+			self::give_up( $order_id, __( 'another request kept the lock', 'beltoft-licenses' ) );
 			return;
 		}
 
@@ -247,6 +242,23 @@ final class Orders {
 		} elseif ( ! wp_next_scheduled( self::RETRY_HOOK, $args ) ) {
 			wp_schedule_single_event( $when, self::RETRY_HOOK, $args );
 		}
+	}
+
+	/**
+	 * Notes that issuing failed for good and tells the admin once.
+	 *
+	 * @param int    $order_id Order ID.
+	 * @param string $reason   Why.
+	 */
+	private static function give_up( int $order_id, string $reason ): void {
+		$order = wc_get_order( $order_id );
+
+		if ( $order instanceof \WC_Order ) {
+			/* translators: %s: reason. */
+			$order->add_order_note( sprintf( __( 'Licenses could not be issued: %s. Issue them by hand with "Issue a license" in the license box of this order.', 'beltoft-licenses' ), $reason ) );
+		}
+
+		Locks::alert_once( 'order', $order_id, $reason );
 	}
 
 	/**
@@ -266,6 +278,9 @@ final class Orders {
 
 		try {
 			self::issue( $order );
+		} catch ( \Throwable $e ) {
+			// A failing retry must not end the chain silently.
+			self::give_up( (int) $order_id, $e->getMessage() );
 		} finally {
 			self::$attempt = 0;
 		}

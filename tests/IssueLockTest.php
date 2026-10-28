@@ -43,6 +43,11 @@ class IssueLockTest extends TestCase {
 	}
 
 	public function tear_down(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test schema.
+		$wpdb->query( 'DROP TEMPORARY TABLE IF EXISTS ' . Install::tables()['licenses'] );
+
 		if ( $this->other ) {
 			$this->other->close();
 			$this->other = null;
@@ -212,23 +217,157 @@ class IssueLockTest extends TestCase {
 		$this->assertCount( 1, Licenses::where( 'subscription_id', $sub->get_id() ) );
 	}
 
-	public function test_a_subscription_unit_marker_blocks_a_second_license(): void {
+	private function sub_with_item( int $qty ): FakeSubscription {
 		$sub  = new FakeSubscription( wp_rand( 1, 999999 ) );
 		$item = new \WC_Order_Item_Product();
 		$item->set_product( $this->product() );
-		$item->set_quantity( 1 );
+		$item->set_quantity( $qty );
 		$sub->items[] = $item;
 
-		Subscriptions::activated( $sub );
-		$license = Licenses::where( 'subscription_id', $sub->get_id() )[0];
+		return $sub;
+	}
 
-		// Someone moved the license off the subscription: its unit's marker still stands, so
-		// issuing again does not make a second key for the same unit.
-		Licenses::update( $license['id'], array( 'subscription_id' => 0 ) );
+	public function test_a_deleted_subscription_unit_is_issued_again_with_the_lowest_free_marker(): void {
+		global $wpdb;
+
+		$sub = $this->sub_with_item( 3 );
+		Subscriptions::activated( $sub );
+		$prefix = 's' . $sub->get_id() . '-i0-';
+		$this->assertSame( array( $prefix . '1', $prefix . '2', $prefix . '3' ), Licenses::issue_keys( $prefix ) );
+
+		$one = Licenses::find_by_issue_key( $prefix . '1' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- test.
+		$wpdb->delete( Install::tables()['licenses'], array( 'id' => $one['id'] ) );
+		$this->assertCount( 2, Licenses::where( 'subscription_id', $sub->get_id() ) );
+
 		Subscriptions::renewed( $sub );
 
-		$this->assertCount( 0, Licenses::where( 'subscription_id', $sub->get_id() ) );
-		$this->assertNotNull( Licenses::find_by_issue_key( 's' . $sub->get_id() . '-i0-1' ) );
+		$this->assertCount( 3, Licenses::where( 'subscription_id', $sub->get_id() ) );
+		$this->assertNotNull( Licenses::find_by_issue_key( $prefix . '1' ), 'unit 1 got its license back' );
+		Subscriptions::renewed( $sub );
+		$this->assertCount( 3, Licenses::where( 'subscription_id', $sub->get_id() ) );
+	}
+
+	public function test_giving_up_notes_and_alerts_the_admin_once(): void {
+		$order = $this->order();
+		$order->set_status( 'processing' );
+		$order->save();
+		reset_phpmailer_instance();
+
+		// The last allowed attempt meets a busy lock: it would defer once more, so it gives up.
+		add_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
+		$this->hold( $this->item_lock( $order ) );
+		Orders::retry( $order->get_id(), Orders::MAX_RETRIES );
+		Orders::retry( $order->get_id(), Orders::MAX_RETRIES );
+
+		$mails = array_filter( array_map( 'strval', wp_list_pluck( $GLOBALS['phpmailer']->mock_sent ?? array(), 'subject' ) ) );
+		$this->assertCount( 1, $mails, 'one alert for the order, however often it fails' );
+		$notes = wp_list_pluck( wc_get_order_notes( array( 'order_id' => $order->get_id() ) ), 'content' );
+		$this->assertNotEmpty( array_filter( $notes, static fn( $n ) => false !== strpos( $n, 'Issue a license' ) ) );
+	}
+
+	public function test_an_exception_in_a_retry_is_noted_and_alerted(): void {
+		$order = $this->order();
+		$order->set_status( 'processing' );
+		$order->save();
+		reset_phpmailer_instance();
+		add_filter(
+			'beltoft_licenses_lock_wait',
+			static function () {
+				throw new \RuntimeException( 'boom' );
+			}
+		);
+
+		Orders::retry( $order->get_id(), 1 );
+
+		$this->assertCount( 1, $GLOBALS['phpmailer']->mock_sent );
+		$notes = wp_list_pluck( wc_get_order_notes( array( 'order_id' => $order->get_id() ) ), 'content' );
+		$this->assertNotEmpty( array_filter( $notes, static fn( $n ) => false !== strpos( $n, 'boom' ) ) );
+	}
+
+	/**
+	 * Builds the licenses table as schema 3 had it: no issue_key column or index.
+	 */
+	private function schema3_table(): void {
+		global $wpdb;
+
+		$t = Install::tables()['licenses'];
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"CREATE TABLE $t (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				license_key varchar(64) NOT NULL,
+				status varchar(20) NOT NULL DEFAULT 'active',
+				max_activations int(11) unsigned NOT NULL DEFAULT 1,
+				expires_at datetime NULL DEFAULT NULL,
+				product_slug varchar(100) NOT NULL DEFAULT '',
+				user_id bigint(20) unsigned NULL DEFAULT NULL,
+				email varchar(190) NOT NULL DEFAULT '',
+				product_id bigint(20) unsigned NULL DEFAULT NULL,
+				variation_id bigint(20) unsigned NULL DEFAULT NULL,
+				order_id bigint(20) unsigned NULL DEFAULT NULL,
+				subscription_id bigint(20) unsigned NULL DEFAULT NULL,
+				source varchar(20) NOT NULL DEFAULT 'manual',
+				external_id varchar(64) NULL DEFAULT NULL,
+				created_at datetime NOT NULL,
+				updated_at datetime NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY license_key (license_key),
+				UNIQUE KEY external_id (external_id),
+				KEY status (status)
+			)"
+		);
+		// phpcs:enable
+	}
+
+	public function test_a_schema_3_table_still_accepts_every_create(): void {
+		$this->schema3_table();
+
+		$plain  = Licenses::create( array( 'product_slug' => 'x' ) );
+		$marked = Licenses::create( array( 'product_slug' => 'x', 'issue_key' => 'oi1-1' ) );
+
+		$this->assertNotNull( $plain, 'a create without a marker works before the upgrade' );
+		$this->assertNull( $marked, 'a marker cannot be stored before the upgrade, and nothing else breaks' );
+	}
+
+	public function test_upgrade_of_a_real_schema_3_table_adds_the_column_and_key_and_keeps_rows(): void {
+		global $wpdb;
+
+		$this->schema3_table();
+		$t   = Install::tables()['licenses'];
+		$now = gmdate( 'Y-m-d H:i:s' );
+		foreach ( array( 'AAA', 'BBB' ) as $key ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- test.
+			$wpdb->insert( $t, array( 'license_key' => $key, 'order_id' => 5, 'product_id' => 6, 'source' => 'order', 'created_at' => $now, 'updated_at' => $now ) );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test.
+		$before = $wpdb->get_results( "SELECT * FROM $t ORDER BY id", ARRAY_A );
+
+		delete_option( Duplicates::OPTION_SCANNED );
+		update_option( Install::OPTION_DB_VERSION, '3' );
+		Install::maybe_upgrade();
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$this->assertSame( 'issue_key', $wpdb->get_var( "SHOW COLUMNS FROM $t LIKE 'issue_key'", 0 ) );
+		$this->assertTrue( Install::has_issue_key() );
+		$after = $wpdb->get_results( "SELECT * FROM $t ORDER BY id", ARRAY_A );
+		// phpcs:enable
+		foreach ( $after as &$row ) {
+			$this->assertNull( $row['issue_key'] );
+			unset( $row['issue_key'] );
+		}
+		$this->assertSame( $before, $after, 'rows untouched' );
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertCount( 1, get_option( Duplicates::OPTION ), 'the pair of licenses on one single-unit item is reported' );
+	}
+
+	public function test_the_duplicate_scan_runs_once_per_upgrade_not_every_request(): void {
+		delete_option( Duplicates::OPTION_SCANNED );
+		Duplicates::schedule_scan();
+		update_option( Duplicates::OPTION, array( array( 'owner' => 'order' ) ) );
+		Duplicates::schedule_scan();
+
+		$this->assertSame( array( array( 'owner' => 'order' ) ), get_option( Duplicates::OPTION ), 'the second call did not rescan' );
 	}
 
 	public function test_the_upgrade_reports_existing_duplicates_and_changes_nothing(): void {
@@ -249,6 +388,7 @@ class IssueLockTest extends TestCase {
 		Licenses::create( array_merge( $row, array( 'order_id' => $ok->get_id(), 'product_id' => (int) $ok_item->get_product_id() ) ) );
 
 		$before = Licenses::query( array() );
+		delete_option( Duplicates::OPTION_SCANNED );
 		update_option( Install::OPTION_DB_VERSION, '3' );
 		Install::maybe_upgrade();
 

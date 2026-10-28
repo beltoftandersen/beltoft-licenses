@@ -69,4 +69,29 @@ final class Locks {
 			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $name ) );
 		}
 	}
+
+	/**
+	 * Mails the site admin that licenses could not be issued, once per order or subscription.
+	 *
+	 * @param string $kind  'order' or 'subscription'.
+	 * @param int    $id    Its ID.
+	 * @param string $reason Why.
+	 */
+	public static function alert_once( string $kind, int $id, string $reason ): void {
+		$option = 'beltoft_licenses_alerted_' . $kind . '_' . $id;
+
+		if ( get_option( $option ) ) {
+			return;
+		}
+
+		add_option( $option, time(), '', false );
+
+		wp_mail(
+			get_option( 'admin_email' ),
+			/* translators: 1: order or subscription, 2: its number. */
+			sprintf( __( 'Licenses could not be issued for %1$s #%2$d', 'beltoft-licenses' ), $kind, $id ),
+			/* translators: 1: order or subscription, 2: its number, 3: reason. */
+			sprintf( __( 'No license was issued for %1$s #%2$d: %3$s. Issue them by hand with "Issue a license" in the license box of that %1$s.', 'beltoft-licenses' ), $kind, $id, $reason )
+		);
+	}
 }

@@ -174,6 +174,8 @@ final class Subscriptions {
 			$slug    = Product::slug( $product );
 			$have    = count( array_filter( $existing, static fn( $l ) => $l['product_slug'] === $slug ) );
 			$wanted  = max( 1, (int) $item->get_quantity() );
+			$prefix  = 's' . (int) $subscription->get_id() . '-i' . (int) $item->get_id() . '-';
+			$taken   = Licenses::issue_keys( $prefix );
 
 			for ( $i = $have; $i < $wanted; $i++ ) {
 				$license = self::take_over( $old, $slug, $subscription );
@@ -182,7 +184,13 @@ final class Subscriptions {
 					continue;
 				}
 
-				$marker  = 's' . (int) $subscription->get_id() . '-i' . (int) $item->get_id() . '-' . ( $i + 1 );
+				// The lowest unit of this item without a license: a deleted unit is issued again.
+				$unit = 1;
+				while ( in_array( $prefix . $unit, $taken, true ) ) {
+					++$unit;
+				}
+				$marker  = $prefix . $unit;
+				$taken[] = $marker;
 				$license = Licenses::create(
 					array(
 						'product_slug'    => $slug,
@@ -219,12 +227,7 @@ final class Subscriptions {
 		$attempt = self::$attempt + 1;
 
 		if ( $attempt > self::MAX_RETRIES ) {
-			$subscription = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( $subscription_id ) : null;
-
-			if ( is_object( $subscription ) ) {
-				$subscription->add_order_note( __( 'Licenses could not be issued: another request kept the lock. Issue them from the license box of this subscription.', 'beltoft-licenses' ) );
-			}
-
+			self::give_up( $subscription_id, __( 'another request kept the lock', 'beltoft-licenses' ) );
 			return;
 		}
 
@@ -237,6 +240,23 @@ final class Subscriptions {
 		} elseif ( ! wp_next_scheduled( self::RETRY_HOOK, $args ) ) {
 			wp_schedule_single_event( time() + 30, self::RETRY_HOOK, $args );
 		}
+	}
+
+	/**
+	 * Notes that issuing failed for good and tells the admin once.
+	 *
+	 * @param int    $subscription_id Subscription ID.
+	 * @param string $reason          Why.
+	 */
+	private static function give_up( int $subscription_id, string $reason ): void {
+		$subscription = function_exists( 'wcs_get_subscription' ) ? wcs_get_subscription( $subscription_id ) : null;
+
+		if ( is_object( $subscription ) ) {
+			/* translators: %s: reason. */
+			$subscription->add_order_note( sprintf( __( 'Licenses could not be issued: %s. Issue them by hand with "Issue a license" in the license box of this subscription.', 'beltoft-licenses' ), $reason ) );
+		}
+
+		Locks::alert_once( 'subscription', $subscription_id, $reason );
 	}
 
 	/**
@@ -261,6 +281,9 @@ final class Subscriptions {
 			} elseif ( in_array( $subscription->get_status(), array( 'pending', 'on-hold' ), true ) ) {
 				Orders::grace( self::issue( $subscription ) );
 			}
+		} catch ( \Throwable $e ) {
+			// A failing retry must not end the chain silently.
+			self::give_up( (int) $subscription_id, $e->getMessage() );
 		} finally {
 			self::$attempt = 0;
 		}
