@@ -182,7 +182,7 @@ final class Duplicates {
 					count( $groups )
 				)
 			),
-			implode( '<br>', $lines ), // Escaped above.
+			wp_kses( implode( '<br>', $lines ), array( 'br' => array() ) ),
 			esc_url( $dismiss ),
 			esc_html__( 'Dismiss', 'beltoft-licenses' )
 		);
