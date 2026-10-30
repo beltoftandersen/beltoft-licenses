@@ -145,6 +145,43 @@ final class ResourcesTest extends TestCase {
 		$this->assertFalse( Licenses::update_resource_meta( 999999, array( 'b' => 2 ) ) );
 	}
 
+	public function test_update_resource_meta_keeps_a_write_that_lands_between_its_read_and_its_write() {
+		global $wpdb;
+
+		$license = $this->license();
+		$added   = Licenses::add_resource( $license, 'vm', 'vm-1', array( 'task' => 'old', 'a' => 1 ) );
+		$id      = (int) $added['activation_id'];
+		$table   = \BeltoftLicenses\Install::tables()['activations'];
+		$raced   = false;
+
+		// Just before this update writes, another request stores a new task (a provision step, say).
+		$race = static function ( $query ) use ( &$raced, $wpdb, $table, $id ) {
+			if ( ! $raced && 0 === strpos( $query, 'UPDATE `' . $table . '` SET meta' ) ) {
+				$raced = true;
+				$wpdb->query( $wpdb->prepare( 'UPDATE %i SET meta = %s WHERE id = %d', $table, wp_json_encode( array( 'task' => 'new', 'a' => 1 ) ), $id ) );
+			}
+			return $query;
+		};
+		add_filter( 'query', $race );
+		$ok = Licenses::update_resource_meta( $id, array( 'agent' => true ) );
+		remove_filter( 'query', $race );
+
+		$this->assertTrue( $raced, 'The other write ran in between.' );
+		$this->assertTrue( $ok );
+		$this->assertSame( array( 'task' => 'new', 'a' => 1, 'agent' => true ), Licenses::activation( $id )['meta'], 'Both writes are kept.' );
+	}
+
+	public function test_update_resource_meta_succeeds_when_nothing_changes_and_compares_case_exactly() {
+		$license = $this->license();
+		$added   = Licenses::add_resource( $license, 'vm', 'vm-1', array( 'name' => 'Web' ) );
+		$id      = (int) $added['activation_id'];
+
+		$this->assertTrue( Licenses::update_resource_meta( $id, array( 'name' => 'Web' ) ) );
+		$this->assertTrue( Licenses::update_resource_meta( $id, array( 'name' => 'Web' ) ), 'The same values twice in one second is still a success.' );
+		$this->assertTrue( Licenses::update_resource_meta( $id, array( 'name' => 'web' ) ) );
+		$this->assertSame( 'web', Licenses::activation( $id )['meta']['name'], 'A change in case only is written.' );
+	}
+
 	public function test_resources_lists_live_non_site_rows_only() {
 		$license = $this->license( array( 'max_activations' => 0 ) );
 		$id      = (int) $license['id'];

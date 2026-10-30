@@ -16,6 +16,12 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Licenses {
 
+	/**
+	 * How often a meta update reads and merges again when another write landed in between.
+	 */
+	private const META_TRIES = 10;
+
+
 	public const STATUS_ACTIVE    = 'active';
 	public const STATUS_EXPIRED   = 'expired';
 	public const STATUS_REVOKED   = 'revoked';
@@ -609,34 +615,51 @@ final class Licenses {
 	/**
 	 * Merges values into a row's meta and stamps updated_at.
 	 *
+	 * The write is a compare and swap: it only lands on the meta it was merged with. When another request wrote the
+	 * row in between, the meta is read again and merged again, so two writers of different keys never undo each other.
+	 *
 	 * @param int                  $activation_id Activation ID.
 	 * @param array<string, mixed> $meta          Values to merge over the stored ones.
 	 */
 	public static function update_resource_meta( int $activation_id, array $meta ): bool {
 		global $wpdb;
 
-		$row = self::activation( $activation_id );
+		$table = Install::tables()['activations'];
 
-		if ( ! $row ) {
-			return false;
+		for ( $try = 0; $try < self::META_TRIES; $try++ ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+			$stored = $wpdb->get_row( $wpdb->prepare( 'SELECT meta FROM %i WHERE id = %d', $table, $activation_id ), ARRAY_A );
+
+			if ( ! $stored ) {
+				return false;
+			}
+
+			$merged = array_merge( self::decode_meta( $stored )['meta'], $meta );
+			$json   = $merged ? wp_json_encode( $merged ) : null;
+
+			if ( false === $json ) {
+				return false;
+			}
+
+			$now  = gmdate( 'Y-m-d H:i:s' );
+			$old  = $stored['meta'];
+			$set  = null === $json ? 'meta = NULL' : $wpdb->prepare( 'meta = %s', $json );
+			$same = null === $old ? 'meta IS NULL' : $wpdb->prepare( 'BINARY meta = BINARY %s', $old );
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom table; $set and $same are prepared above.
+			$done = $wpdb->query( $wpdb->prepare( "UPDATE %i SET {$set}, updated_at = %s WHERE id = %d AND {$same}", $table, $now, $activation_id ) );
+
+			if ( false === $done ) {
+				return false;
+			}
+
+			// 0 rows: either someone wrote in between (merge again) or the row already held exactly this (done).
+			if ( $done > 0 || $old === $json ) {
+				return true;
+			}
 		}
 
-		$merged = array_merge( $row['meta'], $meta );
-		$json   = $merged ? wp_json_encode( $merged ) : null;
-
-		if ( false === $json ) {
-			return false;
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write to a custom table; nothing to cache.
-		return false !== $wpdb->update(
-			Install::tables()['activations'],
-			array(
-				'meta'       => $json,
-				'updated_at' => gmdate( 'Y-m-d H:i:s' ),
-			),
-			array( 'id' => $activation_id )
-		);
+		return false;
 	}
 
 	/**

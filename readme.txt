@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.1
+Stable tag: 0.8.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.2 =
+* Resource meta updates are a compare and swap: when another request writes the same row between the read and the write, the meta is read and merged again, so two writers of different keys never undo each other.
 
 = 0.8.1 =
 * Filter `beltoft_licenses_account_title`: a plugin can replace the heading of a license on the My Account pages, for example with a domain name instead of the product name.
