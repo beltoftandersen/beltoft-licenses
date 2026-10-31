@@ -54,7 +54,8 @@ final class SubscriptionEmails {
 	}
 
 	/**
-	 * The licenses to show: the subscription's, except revoked ones.
+	 * The licenses to show: the subscription's, except revoked ones and those whose key is not for the customer (the
+	 * filter the account page and the order emails use: a plugin that provides a service, such as a server, hides it).
 	 *
 	 * @param \WC_Order $subscription Subscription.
 	 * @return array<int, array<string, mixed>>
@@ -64,6 +65,7 @@ final class SubscriptionEmails {
 			array_filter(
 				Licenses::where( 'subscription_id', $subscription->get_id() ),
 				static fn( array $license ) => Licenses::STATUS_REVOKED !== $license['status']
+					&& (bool) apply_filters( 'beltoft_licenses_account_show_key', true, $license )
 			)
 		);
 	}

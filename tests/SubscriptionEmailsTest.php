@@ -49,6 +49,17 @@ class SubscriptionEmailsTest extends TestCase {
 		$this->assertStringNotContainsString( 'OTHER-SUB-KEY', $html );
 	}
 
+	public function test_a_key_the_customer_does_not_use_is_not_in_the_notice(): void {
+		$hidden = $this->license( array( 'subscription_id' => $this->subscription->get_id(), 'license_key' => 'SERVICE-KEY-1' ) );
+		add_filter( 'beltoft_licenses_account_show_key', static fn( $show, $license ) => $license['id'] === $hidden['id'] ? false : $show, 10, 2 );
+
+		$html = $this->render( $this->email( 'customer_notification_manual_renewal' ) );
+		remove_all_filters( 'beltoft_licenses_account_show_key' );
+
+		$this->assertStringNotContainsString( 'SERVICE-KEY-1', $html );
+		$this->assertStringNotContainsString( 'Manage your licenses', $html, 'No block at all when no key is left to show.' );
+	}
+
 	public function test_resource_label_filter_reaches_the_notice(): void {
 		add_filter( 'beltoft_licenses_resource_label', static fn() => '1 of 1 server' );
 		$this->license( array( 'subscription_id' => $this->subscription->get_id() ) );
