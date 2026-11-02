@@ -335,7 +335,8 @@ final class Licenses {
 	 * @param string|null $expires_at MySQL datetime in UTC, or null.
 	 */
 	public static function is_past( ?string $expires_at ): bool {
-		return null !== $expires_at && strtotime( $expires_at . ' UTC' ) < time();
+		// The expiry second itself counts as past: a license that expires "now" is not active for that second.
+		return null !== $expires_at && strtotime( $expires_at . ' UTC' ) <= time();
 	}
 
 	/**

@@ -106,4 +106,12 @@ class LicensesTest extends TestCase {
 		$this->assertSame( '2030-01-02T03:04:05.000Z', Licenses::iso( '2030-01-02 03:04:05' ) );
 		$this->assertNull( Licenses::iso( null ) );
 	}
+
+	public function test_a_license_expiring_this_second_is_expired(): void {
+		$now = gmdate( 'Y-m-d H:i:s' );
+		$this->assertTrue( \BeltoftLicenses\Licenses::is_past( $now ) );
+		$this->assertSame( \BeltoftLicenses\Licenses::STATUS_EXPIRED, \BeltoftLicenses\Licenses::effective_status( array( 'status' => 'active', 'expires_at' => $now ) ) );
+		$this->assertFalse( \BeltoftLicenses\Licenses::is_past( gmdate( 'Y-m-d H:i:s', time() + 60 ) ) );
+		$this->assertFalse( \BeltoftLicenses\Licenses::is_past( null ) );
+	}
 }
