@@ -269,11 +269,15 @@ final class Licenses {
 		global $wpdb;
 
 		$before  = self::find( $id );
-		$allowed = array( 'status', 'max_activations', 'expires_at', 'product_slug', 'user_id', 'email', 'product_id', 'variation_id', 'order_id', 'subscription_id' );
+		$allowed = array( 'status', 'max_activations', 'expires_at', 'product_slug', 'user_id', 'email', 'product_id', 'variation_id', 'order_id', 'subscription_id', 'source' );
 		$row     = array_intersect_key( $data, array_flip( $allowed ) );
 
 		if ( ! $before || ! $row ) {
 			return false;
+		}
+
+		if ( array_key_exists( 'source', $row ) ) {
+			$row['source'] = sanitize_key( (string) $row['source'] );
 		}
 
 		if ( array_key_exists( 'expires_at', $row ) ) {
@@ -677,6 +681,148 @@ final class Licenses {
 		);
 
 		return array_values( array_map( array( __CLASS__, 'decode_meta' ), $rows ) );
+	}
+
+	/**
+	 * IDs of live resources: activations that are not closed and not a site.
+	 *
+	 * @param string $kind  Only this kind; empty for all kinds.
+	 * @param int    $after Only IDs above this one; 0 for no lower bound.
+	 * @param int    $limit Most IDs to return; 0 for no limit.
+	 * @param string $order ASC or DESC, by ID.
+	 * @return int[]
+	 */
+	public static function live_resource_ids( string $kind = '', int $after = 0, int $limit = 0, string $order = 'ASC' ): array {
+		global $wpdb;
+
+		$sql  = "SELECT id FROM %i WHERE deactivated_at IS NULL AND kind <> 'site'";
+		$args = array( Install::tables()['activations'] );
+
+		if ( '' !== $kind ) {
+			$sql   .= ' AND kind = %s';
+			$args[] = $kind;
+		}
+
+		if ( $after > 0 ) {
+			$sql   .= ' AND id > %d';
+			$args[] = $after;
+		}
+
+		$sql .= 'DESC' === strtoupper( $order ) ? ' ORDER BY id DESC' : ' ORDER BY id ASC';
+
+		if ( $limit > 0 ) {
+			$sql   .= ' LIMIT %d';
+			$args[] = $limit;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- custom table; the SQL is built from fixed fragments and every value is a placeholder.
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( $sql, $args ) ) );
+	}
+
+	/**
+	 * IDs of live resources of a kind whose meta holds a key with exactly this value.
+	 *
+	 * The match is strict: 12 does not match "12" or 112. A SQL pattern narrows the rows,
+	 * then the decoded meta decides.
+	 *
+	 * @param string $kind  Resource kind.
+	 * @param string $key   Meta key.
+	 * @param mixed  $value Value to match with ===.
+	 * @param string $order ASC or DESC, by ID.
+	 * @return int[]
+	 */
+	public static function resource_ids_by_meta( string $kind, string $key, $value, string $order = 'ASC' ): array {
+		$ids = array();
+
+		foreach ( self::live_rows_with_key( $kind, $key, $order ) as $row ) {
+			$meta = self::decode_meta( $row )['meta'];
+
+			if ( array_key_exists( $key, $meta ) && $meta[ $key ] === $value ) {
+				$ids[] = (int) $row['id'];
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * IDs of live resources, of any kind, whose meta has this key set to something other than null.
+	 *
+	 * @param string $key Meta key.
+	 * @return int[]
+	 */
+	public static function resource_ids_having_meta( string $key ): array {
+		$ids = array();
+
+		foreach ( self::live_rows_with_key( '', $key, 'ASC' ) as $row ) {
+			$meta = self::decode_meta( $row )['meta'];
+
+			if ( isset( $meta[ $key ] ) ) {
+				$ids[] = (int) $row['id'];
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Resources whose license has a given source: live ones, and closed ones since a time.
+	 *
+	 * @param string      $source            License source, for example woocommerce.
+	 * @param string|null $deactivated_since UTC datetime; closed rows from then on are included. Null for live rows only.
+	 * @return array<int, array{id:int, activated_at:string, deactivated_at:?string}> Ordered by ID.
+	 */
+	public static function resources_of_source( string $source, ?string $deactivated_since = null ): array {
+		global $wpdb;
+
+		$sql  = "SELECT a.id, a.activated_at, a.deactivated_at FROM %i a INNER JOIN %i l ON l.id = a.license_id WHERE a.kind <> 'site' AND l.source = %s";
+		$args = array( Install::tables()['activations'], Install::tables()['licenses'], $source );
+
+		if ( null === $deactivated_since ) {
+			$sql .= ' AND a.deactivated_at IS NULL';
+		} else {
+			$sql   .= ' AND ( a.deactivated_at IS NULL OR a.deactivated_at >= %s )';
+			$args[] = $deactivated_since;
+		}
+
+		$sql .= ' ORDER BY a.id ASC';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- custom tables; the SQL is built from fixed fragments and every value is a placeholder.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		return array_map(
+			static fn( $row ) => array(
+				'id'             => (int) $row['id'],
+				'activated_at'   => (string) $row['activated_at'],
+				'deactivated_at' => null === $row['deactivated_at'] ? null : (string) $row['deactivated_at'],
+			),
+			$rows
+		);
+	}
+
+	/**
+	 * Live non-site rows whose meta text may hold a key, in ID order. Callers check the decoded meta.
+	 *
+	 * @param string $kind  Only this kind; empty for all.
+	 * @param string $key   Meta key.
+	 * @param string $order ASC or DESC.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function live_rows_with_key( string $kind, string $key, string $order ): array {
+		global $wpdb;
+
+		$sql  = "SELECT id, meta FROM %i WHERE deactivated_at IS NULL AND kind <> 'site' AND meta LIKE %s";
+		$args = array( Install::tables()['activations'], '%' . $wpdb->esc_like( wp_json_encode( $key ) . ':' ) . '%' );
+
+		if ( '' !== $kind ) {
+			$sql   .= ' AND kind = %s';
+			$args[] = $kind;
+		}
+
+		$sql .= 'DESC' === strtoupper( $order ) ? ' ORDER BY id DESC' : ' ORDER BY id ASC';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- custom table; the SQL is built from fixed fragments and every value is a placeholder.
+		return (array) $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
 	}
 
 	/**

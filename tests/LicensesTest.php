@@ -88,6 +88,21 @@ class LicensesTest extends TestCase {
 		$this->assertSame( 2, $calls[0][1]['max_activations'] );
 	}
 
+	public function test_update_accepts_source_and_reports_the_change(): void {
+		$l     = $this->license( array( 'source' => 'manual' ) );
+		$calls = array();
+		$spy   = static function ( $after, $before, $changed ) use ( &$calls ) {
+			$calls[] = $changed;
+		};
+		add_action( 'beltoft_licenses_license_updated', $spy, 10, 3 );
+
+		$this->assertTrue( Licenses::update( $l['id'], array( 'source' => 'Woo Commerce!' ) ) );
+		remove_action( 'beltoft_licenses_license_updated', $spy, 10 );
+
+		$this->assertSame( array( array( 'source' ) ), $calls );
+		$this->assertSame( 'woocommerce', Licenses::find( $l['id'] )['source'] );
+	}
+
 	public function test_update_without_changes_fires_nothing(): void {
 		$l     = $this->license( array( 'max_activations' => 2 ) );
 		$calls = 0;

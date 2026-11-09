@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.2
+Stable tag: 0.8.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.3 =
+* A license's source can be updated. Plugins can list live resource IDs (by kind, with paging), find resources by an exact meta value or by a meta key being set, and list the resources of licenses with a given source.
 
 = 0.8.2 =
 * Resource meta updates are a compare and swap: when another request writes the same row between the read and the write, the meta is read and merged again, so two writers of different keys never undo each other.

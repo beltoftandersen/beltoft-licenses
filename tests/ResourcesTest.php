@@ -273,4 +273,82 @@ final class ResourcesTest extends TestCase {
 		$this->assertSame( array( 'a' => 1 ), $row['meta'] );
 		$this->assertNull( $row['updated_at'] );
 	}
+
+	public function test_live_resource_ids_filters_pages_and_orders() {
+		$license = $this->license( array( 'max_activations' => 0 ) );
+		Licenses::activate( $license, 'a.test' );
+		$vm1 = Licenses::add_resource( $license, 'vm', 'vm-1' )['activation_id'];
+		$db1 = Licenses::add_resource( $license, 'db', 'db-1' )['activation_id'];
+		$vm2 = Licenses::add_resource( $license, 'vm', 'vm-2' )['activation_id'];
+		$vm3 = Licenses::add_resource( $license, 'vm', 'vm-3' )['activation_id'];
+		Licenses::close_resource( $license, 'vm', 'vm-3' );
+
+		$this->assertSame( array( $vm1, $db1, $vm2 ), Licenses::live_resource_ids() );
+		$this->assertSame( array( $vm1, $vm2 ), Licenses::live_resource_ids( 'vm' ) );
+		$this->assertSame( array( $vm2, $vm1 ), Licenses::live_resource_ids( 'vm', 0, 0, 'DESC' ) );
+		$this->assertSame( array( $db1, $vm2 ), Licenses::live_resource_ids( '', $vm1 ) );
+		$this->assertSame( array( $db1 ), Licenses::live_resource_ids( '', $vm1, 1 ) );
+		$this->assertSame( array( $vm1, $db1, $vm2 ), Licenses::live_resource_ids( '', 0, 0, 'bogus; DROP' ) );
+		$this->assertNotContains( $vm3, Licenses::live_resource_ids() );
+	}
+
+	public function test_resource_ids_by_meta_matches_exactly_not_12_for_112_and_handles_escaped_quotes_and_unicode() {
+		$license = $this->license( array( 'max_activations' => 0 ) );
+		$a       = Licenses::add_resource( $license, 'vm', 'a', array( 'vmid' => 12 ) )['activation_id'];
+		$b       = Licenses::add_resource( $license, 'vm', 'b', array( 'vmid' => 112 ) )['activation_id'];
+		$c       = Licenses::add_resource( $license, 'vm', 'c', array( 'vmid' => '12' ) )['activation_id'];
+		$d       = Licenses::add_resource( $license, 'vm', 'd', array( 'name' => 'say "hi" \\ back' ) )['activation_id'];
+		$e       = Licenses::add_resource( $license, 'vm', 'e', array( 'name' => 'blåbær 日本' ) )['activation_id'];
+		$f       = Licenses::add_resource( $license, 'db', 'f', array( 'vmid' => 12 ) )['activation_id'];
+		$g       = Licenses::add_resource( $license, 'vm', 'g', array( 'note' => 'has "vmid":12 in text' ) )['activation_id'];
+
+		$this->assertSame( array( $a ), Licenses::resource_ids_by_meta( 'vm', 'vmid', 12 ) );
+		$this->assertSame( array( $c ), Licenses::resource_ids_by_meta( 'vm', 'vmid', '12' ) );
+		$this->assertSame( array( $b ), Licenses::resource_ids_by_meta( 'vm', 'vmid', 112 ) );
+		$this->assertSame( array( $d ), Licenses::resource_ids_by_meta( 'vm', 'name', 'say "hi" \\ back' ) );
+		$this->assertSame( array( $e ), Licenses::resource_ids_by_meta( 'vm', 'name', 'blåbær 日本' ) );
+		$this->assertSame( array( $f ), Licenses::resource_ids_by_meta( 'db', 'vmid', 12 ) );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta( 'vm', 'note', 12 ) );
+		$a2 = Licenses::add_resource( $license, 'vm', 'a2', array( 'vmid' => 12 ) )['activation_id'];
+		$this->assertSame( array( $a, $a2 ), Licenses::resource_ids_by_meta( 'vm', 'vmid', 12 ) );
+		$this->assertSame( array( $a2, $a ), Licenses::resource_ids_by_meta( 'vm', 'vmid', 12, 'DESC' ) );
+		$this->assertSame( array( $g ), Licenses::resource_ids_by_meta( 'vm', 'note', 'has "vmid":12 in text' ) );
+	}
+
+	public function test_resource_ids_having_meta_skips_null() {
+		$license = $this->license( array( 'max_activations' => 0 ) );
+		$a       = Licenses::add_resource( $license, 'vm', 'a', array( 'ip' => '10.0.0.1' ) )['activation_id'];
+		Licenses::add_resource( $license, 'vm', 'b', array( 'ip' => null ) );
+		Licenses::add_resource( $license, 'vm', 'c', array( 'other' => 1 ) );
+		$d = Licenses::add_resource( $license, 'db', 'd', array( 'ip' => 0 ) )['activation_id'];
+
+		$this->assertSame( array( $a, $d ), Licenses::resource_ids_having_meta( 'ip' ) );
+	}
+
+	public function test_resources_of_source_includes_recently_deactivated_rows_only_since_the_given_time() {
+		global $wpdb;
+
+		$woo    = $this->license( array( 'source' => 'woocommerce', 'max_activations' => 0 ) );
+		$manual = $this->license( array( 'source' => 'manual', 'max_activations' => 0 ) );
+		Licenses::activate( $woo, 'site.test' );
+		$live   = Licenses::add_resource( $woo, 'vm', 'live' )['activation_id'];
+		$old    = Licenses::add_resource( $woo, 'vm', 'old' )['activation_id'];
+		$recent = Licenses::add_resource( $woo, 'vm', 'recent' )['activation_id'];
+		Licenses::add_resource( $manual, 'vm', 'other' );
+		Licenses::close_resource( $woo, 'vm', 'old' );
+		Licenses::close_resource( $woo, 'vm', 'recent' );
+
+		$table = \BeltoftLicenses\Install::tables()['activations'];
+		$wpdb->update( $table, array( 'deactivated_at' => '2020-01-01 00:00:00' ), array( 'id' => $old ) );
+		$wpdb->update( $table, array( 'deactivated_at' => '2026-11-08 12:00:00' ), array( 'id' => $recent ) );
+
+		$live_only = Licenses::resources_of_source( 'woocommerce' );
+		$this->assertSame( array( $live ), array_column( $live_only, 'id' ) );
+		$this->assertNull( $live_only[0]['deactivated_at'] );
+		$this->assertNotEmpty( $live_only[0]['activated_at'] );
+
+		$since = Licenses::resources_of_source( 'woocommerce', '2026-11-01 00:00:00' );
+		$this->assertSame( array( $live, $recent ), array_column( $since, 'id' ) );
+		$this->assertSame( '2026-11-08 12:00:00', $since[1]['deactivated_at'] );
+	}
 }
