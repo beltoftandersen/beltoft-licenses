@@ -315,6 +315,43 @@ final class ResourcesTest extends TestCase {
 		$this->assertSame( array( $g ), Licenses::resource_ids_by_meta( 'vm', 'note', 'has "vmid":12 in text' ) );
 	}
 
+	public function test_resource_ids_by_meta_any_finds_each_value_once_in_one_query_and_stays_exact() {
+		global $wpdb;
+
+		$license = $this->license( array( 'max_activations' => 0 ) );
+		$a       = Licenses::add_resource( $license, 'vm', 'a', array( 'vmid' => 12 ) )['activation_id'];
+		$b       = Licenses::add_resource( $license, 'vm', 'b', array( 'vmid' => '12' ) )['activation_id'];
+		$c       = Licenses::add_resource( $license, 'vm', 'c', array( 'vmid' => 123 ) )['activation_id'];
+		$d       = Licenses::add_resource( $license, 'vm', 'd', array( 'vmid' => 7, 'inner' => array( 'vmid' => 12 ) ) )['activation_id'];
+		$e       = Licenses::add_resource( $license, 'vm', 'e', array( 'state' => 'waiting', 'on' => true, 'gone' => null, 'rate' => 1.5 ) )['activation_id'];
+		$f       = Licenses::add_resource( $license, 'vm', 'f', array( 'state' => 'applying' ) )['activation_id'];
+		$g       = Licenses::add_resource( $license, 'db', 'g', array( 'vmid' => 12 ) )['activation_id'];
+		$h       = Licenses::add_resource( $license, 'vm', 'h', array( 'vmid' => 12 ) )['activation_id'];
+		Licenses::close_resource( $license, 'vm', 'h' );
+
+		$before = $wpdb->num_queries;
+		$this->assertSame( array( $a, $b ), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 12, '12' ) ) );
+		$this->assertSame( 1, $wpdb->num_queries - $before, 'One query for the whole list.' );
+
+		$this->assertSame( array( $b, $a ), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 12, '12' ), 'DESC' ) );
+		$this->assertSame( array( $a ), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 12, 12 ) ), 'A value given twice still finds the row once.' );
+		$this->assertSame( array( $a, $c ), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 12, 123 ) ), '12 as a pattern also reads 123; the decoded meta decides.' );
+		$this->assertSame( array( $d ), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 7 ) ), 'The top level counts, not a nested key.' );
+		$this->assertSame( array( $e, $f ), Licenses::resource_ids_by_meta_any( 'vm', 'state', array( 'waiting', 'applying' ) ) );
+		$this->assertSame( array( $e ), Licenses::resource_ids_by_meta_any( 'vm', 'on', array( true ) ) );
+		$this->assertSame( array( $e ), Licenses::resource_ids_by_meta_any( 'vm', 'gone', array( null ) ) );
+		$this->assertSame( array( $e ), Licenses::resource_ids_by_meta_any( 'vm', 'rate', array( 1.5 ) ), 'A fraction is found through the key alone.' );
+		$this->assertSame( array( $e ), Licenses::resource_ids_by_meta_any( 'vm', 'rate', array( 1.5, 'x' ) ) );
+		$this->assertSame( array( $g ), Licenses::resource_ids_by_meta_any( 'db', 'vmid', array( 12 ) ) );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array() ) );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 99 ) ) );
+
+		$url = Licenses::add_resource( $license, 'vm', 'url', array( 'url' => 'http://x.y/a_b?c=100%' ) )['activation_id'];
+		$this->assertSame( array( $url ), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/a_b?c=100%' ) ), 'A slash, an underscore and a percent sign are plain characters.' );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/aXb?c=100%' ) ) );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/a_b?c=100' ) ) );
+	}
+
 	public function test_resource_ids_having_meta_skips_null() {
 		$license = $this->license( array( 'max_activations' => 0 ) );
 		$a       = Licenses::add_resource( $license, 'vm', 'a', array( 'ip' => '10.0.0.1' ) )['activation_id'];
@@ -350,5 +387,29 @@ final class ResourcesTest extends TestCase {
 		$since = Licenses::resources_of_source( 'woocommerce', '2026-11-01 00:00:00' );
 		$this->assertSame( array( $live, $recent ), array_column( $since, 'id' ) );
 		$this->assertSame( '2026-11-08 12:00:00', $since[1]['deactivated_at'] );
+	}
+
+	public function test_product_holders_lists_user_and_email_of_every_license_of_the_product_in_one_query() {
+		global $wpdb;
+
+		$this->license( array( 'product_slug' => 'alpha', 'user_id' => 7, 'email' => 'christian.beltoft@gmail.com' ) );
+		$revoked = $this->license( array( 'product_slug' => 'alpha', 'user_id' => 0, 'email' => 'christian.beltoft+two@gmail.com' ) );
+		$this->license( array( 'product_slug' => 'beta', 'user_id' => 9, 'email' => 'christian.beltoft+three@gmail.com' ) );
+		Licenses::update( (int) $revoked['id'], array( 'status' => 'revoked' ) );
+
+		$before  = $wpdb->num_queries;
+		$holders = Licenses::product_holders( 'alpha' );
+		$this->assertSame( 1, $wpdb->num_queries - $before );
+
+		$this->assertSame(
+			array(
+				array( 'user_id' => 0, 'email' => 'christian.beltoft+two@gmail.com' ),
+				array( 'user_id' => 7, 'email' => 'christian.beltoft@gmail.com' ),
+			),
+			$holders,
+			'Every status counts, newest first, and another product is left out.'
+		);
+		$this->assertSame( array(), Licenses::product_holders( 'none' ) );
+		$this->assertSame( array(), Licenses::product_holders( '' ) );
 	}
 }
