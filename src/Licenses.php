@@ -189,6 +189,33 @@ final class Licenses {
 	}
 
 	/**
+	 * Who holds a license of a product, of any status: the user ID and email of each license, in one query.
+	 *
+	 * @param string $product_slug Product slug.
+	 * @return array<int, array{user_id: int, email: string}>
+	 */
+	public static function product_holders( string $product_slug ): array {
+		global $wpdb;
+
+		if ( '' === $product_slug ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, always fresh.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT user_id, email FROM %i WHERE product_slug = %s ORDER BY id DESC', Install::tables()['licenses'], $product_slug ), ARRAY_A );
+
+		return array_map(
+			static function ( $row ) {
+				return array(
+					'user_id' => (int) $row['user_id'],
+					'email'   => (string) $row['email'],
+				);
+			},
+			$rows
+		);
+	}
+
+	/**
 	 * Licenses for the admin list: filtered, searched and paged, newest first.
 	 *
 	 * The search matches part of a key, an email address or a site.
@@ -732,12 +759,34 @@ final class Licenses {
 	 * @return int[]
 	 */
 	public static function resource_ids_by_meta( string $kind, string $key, $value, string $order = 'ASC' ): array {
-		$ids = array();
+		return self::resource_ids_by_meta_any( $kind, $key, array( $value ), $order );
+	}
 
-		foreach ( self::live_rows_with_key( $kind, $key, $order ) as $row ) {
+	/**
+	 * IDs of live resources of a kind whose meta holds a key with exactly one of these values, in one query.
+	 *
+	 * The match is strict and on the top level of the meta, as in resource_ids_by_meta(). The SQL pattern
+	 * narrows on the key and, for whole numbers, text, booleans and null, on the encoded value too; the
+	 * decoded meta decides. Each ID comes back once.
+	 *
+	 * @param string            $kind   Resource kind.
+	 * @param string            $key    Meta key.
+	 * @param array<int, mixed> $values Values, any of which matches with ===.
+	 * @param string            $order  ASC or DESC, by ID.
+	 * @return int[]
+	 */
+	public static function resource_ids_by_meta_any( string $kind, string $key, array $values, string $order = 'ASC' ): array {
+		$values = array_values( $values );
+		$ids    = array();
+
+		if ( ! $values ) {
+			return $ids;
+		}
+
+		foreach ( self::live_rows_with_key( $kind, $key, $order, $values ) as $row ) {
 			$meta = self::decode_meta( $row )['meta'];
 
-			if ( array_key_exists( $key, $meta ) && $meta[ $key ] === $value ) {
+			if ( array_key_exists( $key, $meta ) && in_array( $meta[ $key ], $values, true ) ) {
 				$ids[] = (int) $row['id'];
 			}
 		}
@@ -803,16 +852,34 @@ final class Licenses {
 	/**
 	 * Live non-site rows whose meta text may hold a key, in ID order. Callers check the decoded meta.
 	 *
-	 * @param string $kind  Only this kind; empty for all.
-	 * @param string $key   Meta key.
-	 * @param string $order ASC or DESC.
+	 * @param string            $kind   Only this kind; empty for all.
+	 * @param string            $key    Meta key.
+	 * @param string            $order  ASC or DESC.
+	 * @param array<int, mixed> $values When every value is a whole number, text, a boolean or null: only rows whose meta text holds the key followed by one of them.
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function live_rows_with_key( string $kind, string $key, string $order ): array {
+	private static function live_rows_with_key( string $kind, string $key, string $order, array $values = array() ): array {
 		global $wpdb;
 
-		$sql  = "SELECT id, meta FROM %i WHERE deactivated_at IS NULL AND kind <> 'site' AND meta LIKE %s";
-		$args = array( Install::tables()['activations'], '%' . $wpdb->esc_like( wp_json_encode( $key ) . ':' ) . '%' );
+		$prefix   = wp_json_encode( $key ) . ':';
+		$patterns = array();
+
+		// The stored meta is wp_json_encode() of the array, so an encoded scalar follows its key directly.
+		foreach ( $values as $value ) {
+			if ( ! is_int( $value ) && ! is_string( $value ) && ! is_bool( $value ) && null !== $value ) {
+				$patterns = array();
+				break;
+			}
+
+			$patterns[] = '%' . $wpdb->esc_like( $prefix . wp_json_encode( $value ) ) . '%';
+		}
+
+		if ( ! $patterns ) {
+			$patterns = array( '%' . $wpdb->esc_like( $prefix ) . '%' );
+		}
+
+		$sql  = "SELECT id, meta FROM %i WHERE deactivated_at IS NULL AND kind <> 'site' AND ( " . implode( ' OR ', array_fill( 0, count( $patterns ), 'meta LIKE %s' ) ) . ' )';
+		$args = array_merge( array( Install::tables()['activations'] ), $patterns );
 
 		if ( '' !== $kind ) {
 			$sql   .= ' AND kind = %s';
