@@ -412,4 +412,23 @@ final class ResourcesTest extends TestCase {
 		$this->assertSame( array(), Licenses::product_holders( 'none' ) );
 		$this->assertSame( array(), Licenses::product_holders( '' ) );
 	}
+
+	public function test_activations_reads_several_rows_in_one_query_keyed_by_id() {
+		global $wpdb;
+
+		$license = $this->license( array( 'max_activations' => 0 ) );
+		$a       = Licenses::add_resource( $license, 'vm', 'a', array( 'plan' => array( 'memory' => 2 ) ) )['activation_id'];
+		$b       = Licenses::add_resource( $license, 'db', 'b', array( 'state' => 'active' ) )['activation_id'];
+		$c       = Licenses::add_resource( $license, 'vm', 'c', array() )['activation_id'];
+		Licenses::close_resource( $license, 'vm', 'c' );
+
+		$before = $wpdb->num_queries;
+		$rows   = Licenses::activations( array( $b, $a, $c, $a, 0, 999999 ) );
+		$this->assertSame( 1, $wpdb->num_queries - $before );
+
+		$this->assertEqualsCanonicalizing( array( $a, $b, $c ), array_keys( $rows ), 'Live and closed rows, each once; unknown IDs are left out.' );
+		$this->assertEquals( Licenses::activation( $a ), $rows[ $a ], 'The same row as the single read, meta decoded.' );
+		$this->assertEquals( Licenses::activation( $c ), $rows[ $c ] );
+		$this->assertSame( array(), Licenses::activations( array() ) );
+	}
 }

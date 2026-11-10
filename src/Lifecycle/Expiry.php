@@ -69,9 +69,38 @@ final class Expiry {
 	 * Schedules the run (daily at 02:00 site time, or hourly by setting), once.
 	 */
 	public static function schedule(): void {
-		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( self::HOOK, array(), self::GROUP ) ) {
+		if ( ! function_exists( 'as_has_scheduled_action' ) || ! self::check_due() ) {
+			return;
+		}
+
+		if ( ! as_has_scheduled_action( self::HOOK, array(), self::GROUP ) ) {
 			as_schedule_cron_action( time(), self::cron(), self::HOOK, array(), self::GROUP );
 		}
+
+		update_option( self::CHECKED, time(), true );
+	}
+
+	/**
+	 * Option holding when the schedule was last checked.
+	 */
+	const CHECKED = 'beltoft_licenses_expiry_checked';
+
+	/**
+	 * Seconds between two checks on ordinary requests.
+	 */
+	const CHECK_PERIOD = 6 * HOUR_IN_SECONDS;
+
+	/**
+	 * Is it time to look whether the run is scheduled? Asking Action Scheduler costs a query, so a
+	 * visitor's request asks only once per CHECK_PERIOD; the admin, cron and WP-CLI always ask, so a
+	 * lost schedule comes back within minutes on a site whose queue runs.
+	 */
+	private static function check_due(): bool {
+		if ( ( is_admin() && ! wp_doing_ajax() ) || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			return true;
+		}
+
+		return time() - (int) get_option( self::CHECKED, 0 ) >= self::CHECK_PERIOD;
 	}
 
 	/**
@@ -81,6 +110,8 @@ final class Expiry {
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( self::HOOK, array(), self::GROUP );
 		}
+
+		delete_option( self::CHECKED );
 	}
 
 	/**
