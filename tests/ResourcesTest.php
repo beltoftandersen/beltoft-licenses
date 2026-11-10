@@ -345,6 +345,11 @@ final class ResourcesTest extends TestCase {
 		$this->assertSame( array( $g ), Licenses::resource_ids_by_meta_any( 'db', 'vmid', array( 12 ) ) );
 		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array() ) );
 		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'vmid', array( 99 ) ) );
+
+		$url = Licenses::add_resource( $license, 'vm', 'url', array( 'url' => 'http://x.y/a_b?c=100%' ) )['activation_id'];
+		$this->assertSame( array( $url ), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/a_b?c=100%' ) ), 'A slash, an underscore and a percent sign are plain characters.' );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/aXb?c=100%' ) ) );
+		$this->assertSame( array(), Licenses::resource_ids_by_meta_any( 'vm', 'url', array( 'http://x.y/a_b?c=100' ) ) );
 	}
 
 	public function test_resource_ids_having_meta_skips_null() {
