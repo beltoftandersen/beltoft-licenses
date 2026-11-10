@@ -77,13 +77,24 @@ final class Expiry {
 			as_schedule_cron_action( time(), self::cron(), self::HOOK, array(), self::GROUP );
 		}
 
-		update_option( self::CHECKED, time(), true );
+		// The admin, cron and WP-CLI check on every request, and the time always differs: write it at most every
+		// STAMP_REFRESH seconds, so the autoloaded option is not UPDATEd every minute under the system cron.
+		$age = time() - (int) get_option( self::CHECKED, 0 );
+
+		if ( $age < 0 || $age >= self::STAMP_REFRESH ) {
+			update_option( self::CHECKED, time(), true );
+		}
 	}
 
 	/**
 	 * Option holding when the schedule was last checked.
 	 */
 	const CHECKED = 'beltoft_licenses_expiry_checked';
+
+	/**
+	 * Seconds the stored stamp is left alone.
+	 */
+	const STAMP_REFRESH = 5 * MINUTE_IN_SECONDS;
 
 	/**
 	 * Seconds between two checks on ordinary requests.

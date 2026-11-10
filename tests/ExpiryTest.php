@@ -71,6 +71,45 @@ class ExpiryTest extends TestCase {
 		$this->assertFalse( get_option( Expiry::CHECKED ), 'Unscheduling forgets the stamp, so the next request checks.' );
 	}
 
+	public function test_an_admin_check_rewrites_the_stamp_only_every_five_minutes(): void {
+		Expiry::unschedule();
+		set_current_screen( 'dashboard' );
+
+		$writes = 0;
+		$count  = static function ( $name ) use ( &$writes ) {
+			if ( Expiry::CHECKED === $name ) {
+				++$writes;
+			}
+		};
+		add_action( 'added_option', $count );
+		add_action( 'updated_option', $count );
+
+		try {
+			Expiry::schedule();
+			$this->assertSame( 1, $writes, 'The first check stores the stamp.' );
+
+			// A minute ago: the time would differ, so every admin, cron and CLI request would UPDATE the option.
+			update_option( Expiry::CHECKED, time() - 60 );
+			$writes = 0;
+			as_unschedule_all_actions( Expiry::HOOK );
+			Expiry::schedule();
+			Expiry::schedule();
+			$this->assertSame( 0, $writes, 'No rewrite inside five minutes.' );
+			$this->assertEqualsWithDelta( time() - 60, (int) get_option( Expiry::CHECKED ), 2, 'The stored time is left alone.' );
+			$this->assertTrue( as_has_scheduled_action( Expiry::HOOK ), 'The check itself still ran.' );
+
+			update_option( Expiry::CHECKED, time() - 301 );
+			$writes = 0;
+			Expiry::schedule();
+			$this->assertSame( 1, $writes, 'Older than five minutes: stamped again.' );
+			$this->assertEqualsWithDelta( time(), (int) get_option( Expiry::CHECKED ), 2 );
+		} finally {
+			remove_action( 'added_option', $count );
+			remove_action( 'updated_option', $count );
+			set_current_screen( 'front' );
+		}
+	}
+
 	public function test_cron_follows_the_setting(): void {
 		update_option( Settings::OPTION, array( 'expiry_hourly' => 0 ) );
 		$this->assertSame( '0 2 * * *', Expiry::cron() );
