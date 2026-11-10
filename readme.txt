@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.4
+Stable tag: 0.8.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.5 =
+* Plugins can read several resources by ID in one query. The expiry schedule is checked once per six hours on visitor requests, not on every request.
 
 = 0.8.4 =
 * Plugins can find resources by any of several exact meta values in one query, and the query narrows on the value as well as the key. Plugins can list who holds a license of a product (user and email) in one query.

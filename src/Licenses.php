@@ -893,6 +893,32 @@ final class Licenses {
 	}
 
 	/**
+	 * Several activation rows of any kind, live or closed, in one query.
+	 *
+	 * @param int[] $activation_ids Activation IDs.
+	 * @return array<int, array<string, mixed>> Rows with meta decoded, keyed by ID; an unknown ID is left out.
+	 */
+	public static function activations( array $activation_ids ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $activation_ids ), static fn( $id ) => $id > 0 ) ) );
+		$out = array();
+
+		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
+			$marks = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- custom table, always fresh; the placeholders are built to match the IDs.
+			$rows = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM %i WHERE id IN ( $marks )", array_merge( array( Install::tables()['activations'] ), $chunk ) ), ARRAY_A );
+
+			foreach ( $rows as $row ) {
+				$out[ (int) $row['id'] ] = self::decode_meta( $row );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * One activation row of any kind, live or closed.
 	 *
 	 * @param int $activation_id Activation ID.
