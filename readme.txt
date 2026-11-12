@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.5
+Stable tag: 0.8.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.6 =
+* Security: a license is reused for a new order (a free plan claimed again) and its key shown on order pages and in order emails only for the customer it belongs to. An email typed at checkout no longer picks up a license linked to another account.
 
 = 0.8.5 =
 * Plugins can read several resources by ID in one query. The expiry schedule is checked once per six hours on visitor requests, not on every request.

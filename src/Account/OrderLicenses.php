@@ -27,7 +27,7 @@ final class OrderLicenses {
 
 	/**
 	 * The order's licenses that show a key: issued for it, or linked to its line items (a free
-	 * plan reusing an earlier key).
+	 * plan reusing an earlier key), and only when they belong to the order's customer.
 	 *
 	 * @param \WC_Order $order Order.
 	 * @return array<int, array<string, mixed>>
@@ -49,6 +49,12 @@ final class OrderLicenses {
 		}
 
 		ksort( $licenses );
+
+		// Never a key that is not this customer's, whatever the order's item meta says.
+		$licenses = array_filter(
+			$licenses,
+			static fn( array $license ): bool => Licenses::belongs_to_order_customer( $license, $order )
+		);
 
 		// The same filter the account page uses: a plugin that provides a service hides the key.
 		$licenses = array_filter(

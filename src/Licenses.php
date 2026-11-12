@@ -262,19 +262,26 @@ final class Licenses {
 	}
 
 	/**
-	 * A customer's existing license for a piece of software: by user ID when there is one,
-	 * otherwise by email. Used so a free plan is claimed once.
+	 * A customer's existing license for a piece of software, for a free plan to claim once. It is
+	 * the signed-in customer's own (by user ID), or, for a guest, a license with no user ID and
+	 * the same email. A license linked to an account is never matched by email, and a signed-in
+	 * customer never takes a guest license by email: an email typed at checkout proves nothing.
 	 *
 	 * @param string $slug    Software slug.
 	 * @param int    $user_id User ID, or 0 for a guest.
-	 * @param string $email   Email.
+	 * @param string $email   Email (used for guests only).
 	 * @return array<string, mixed>|null
 	 */
 	public static function find_for_customer( string $slug, int $user_id, string $email ): ?array {
-		$candidates = $user_id ? self::where( 'user_id', $user_id ) : array();
-
-		if ( ! $candidates && '' !== $email ) {
-			$candidates = self::where( 'email', sanitize_email( $email ) );
+		if ( $user_id ) {
+			$candidates = self::where( 'user_id', $user_id );
+		} elseif ( '' !== $email ) {
+			$candidates = array_filter(
+				self::where( 'email', sanitize_email( $email ) ),
+				static fn( array $license ): bool => null === $license['user_id']
+			);
+		} else {
+			$candidates = array();
 		}
 
 		foreach ( $candidates as $license ) {
@@ -284,6 +291,33 @@ final class Licenses {
 		}
 
 		return null;
+	}
+
+	/**
+	 * May an order show this license's key? True when the license is the customer's own: its user
+	 * is the order's customer, or neither has an account and the emails match. A license that
+	 * carries this order's ID was issued or assigned for the order itself (by the lifecycle, a
+	 * subscription's take-over, or staff), never by an email match, so it qualifies too; a free
+	 * plan that reuses a license leaves that license's own order ID alone.
+	 *
+	 * @param array<string, mixed> $license License.
+	 * @param \WC_Order            $order   Order.
+	 */
+	public static function belongs_to_order_customer( array $license, \WC_Order $order ): bool {
+		if ( (int) $license['order_id'] && (int) $license['order_id'] === (int) $order->get_id() ) {
+			return true;
+		}
+
+		$customer = (int) $order->get_customer_id();
+		$owner    = null === $license['user_id'] ? 0 : (int) $license['user_id'];
+
+		if ( $owner ) {
+			return $owner === $customer;
+		}
+
+		$email = strtolower( trim( (string) $order->get_billing_email() ) );
+
+		return ! $customer && '' !== $email && strtolower( trim( (string) $license['email'] ) ) === $email;
 	}
 
 	/**
