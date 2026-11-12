@@ -53,4 +53,17 @@ class SettingsTest extends TestCase {
 		$this->assertStringContainsString( 'name="beltoft_licenses_settings[response_profile]"', $html );
 		$this->assertStringContainsString( 'name="beltoft_licenses_settings[grace_days]"', $html );
 	}
+
+	public function test_get_answers_a_stored_value_and_otherwise_the_default(): void {
+		delete_option( \BeltoftLicenses\Settings::OPTION );
+		$fields = \BeltoftLicenses\Settings::fields();
+		foreach ( $fields as $key => $field ) {
+			$this->assertSame( $field['default'] ?? null, \BeltoftLicenses\Settings::get( $key ), $key );
+		}
+		$first = array_key_first( $fields );
+		update_option( \BeltoftLicenses\Settings::OPTION, array( $first => 'stored-value' ) );
+		$this->assertSame( 'stored-value', \BeltoftLicenses\Settings::get( $first ) );
+		$this->assertNull( \BeltoftLicenses\Settings::get( 'no_such_setting' ) );
+		delete_option( \BeltoftLicenses\Settings::OPTION );
+	}
 }

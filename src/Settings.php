@@ -274,13 +274,29 @@ final class Settings {
 	 */
 	public static function get( string $key ) {
 		$stored = get_option( self::OPTION, array() );
-		$fields = self::fields();
 
 		if ( is_array( $stored ) && array_key_exists( $key, $stored ) ) {
 			return $stored[ $key ];
 		}
 
-		return $fields[ $key ]['default'] ?? null;
+		return self::defaults()[ $key ] ?? null;
+	}
+
+	/**
+	 * The default of every field, kept for the rest of the request per language. Building the field list translates
+	 * every label, and get() is asked many times on each account page (every menu address), so it is built once.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function defaults(): array {
+		static $cache = array();
+		$locale = function_exists( 'determine_locale' ) ? determine_locale() : '';
+
+		if ( ! isset( $cache[ $locale ] ) ) {
+			$cache[ $locale ] = array_map( static fn( $field ) => $field['default'] ?? null, self::fields() );
+		}
+
+		return $cache[ $locale ];
 	}
 
 	/**
