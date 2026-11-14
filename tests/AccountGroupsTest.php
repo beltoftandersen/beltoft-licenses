@@ -35,6 +35,15 @@ class AccountGroupsTest extends TestCase {
 		return Endpoint::menu( array( 'dashboard' => 'Dashboard', 'customer-logout' => 'Log out' ) );
 	}
 
+	public function test_a_child_licence_is_on_no_tab(): void {
+		$plugin = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'my-plugin' ) );
+		$child  = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'hosting-mail', 'source' => 'child' ) );
+
+		$tabs = Endpoint::split( array( $plugin, $child ) );
+
+		$this->assertSame( array( $plugin['id'] ), array_column( $tabs[''], 'id' ), 'The child belongs to its parent and is not listed.' );
+	}
+
 	public function test_licenses_are_sorted_into_tabs_and_linked_there(): void {
 		$this->domains_tab();
 		$plugin = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'my-plugin' ) );

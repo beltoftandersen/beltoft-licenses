@@ -178,6 +178,12 @@ final class Endpoint {
 		$tabs = array( '' => array() ) + array_fill_keys( array_keys( self::groups() ), array() );
 
 		foreach ( $licenses as $license ) {
+			// A child licence (made by a service for one of its parts, such as the mailbox of a hosting account) belongs to its parent
+			// and is shown with it, never as a licence of its own.
+			if ( 'child' === (string) ( $license['source'] ?? '' ) ) {
+				continue;
+			}
+
 			$tabs[ self::home_of( $license ) ][] = $license;
 		}
 
