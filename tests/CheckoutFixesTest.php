@@ -315,6 +315,36 @@ class CheckoutFixesTest extends TestCase {
 		$this->assertSame( array( 'active', 'revoked' ), $statuses );
 	}
 
+	public function test_refunding_every_unit_of_a_subscription_line_cancels_the_subscription(): void {
+		$product = $this->licensed_product();
+		$order   = $this->order( $product, 2 );
+		$sub     = $this->subscription_for( $order, $product, 2 );
+		$order->update_status( 'processing' );
+
+		$this->refund_units( $order, 1 );
+		$this->assertSame( 'active', $sub->status, 'one licence is left' );
+
+		$this->refund_units( $order, 1 );
+		$this->assertSame( 'cancelled', $sub->status );
+	}
+
+	public function test_a_filter_can_stop_a_refund_from_cancelling_the_subscription(): void {
+		add_filter( 'beltoft_licenses_cancel_subscription_on_refund', '__return_false' );
+		$product = $this->licensed_product();
+		$parent  = $this->order( $product );
+		$sub     = $this->subscription_for( $parent, $product );
+		$parent->update_status( 'processing' );
+		$renewal = $this->order( $product );
+		$this->linked[ $renewal->get_id() ]['renewal'][] = $sub;
+		$renewal->update_status( 'processing' );
+		$this->refund_fully( $renewal );
+		$this->assertSame( 'active', $sub->status );
+
+		$this->refund_units( $parent, 1 );
+		$this->assertSame( 'active', $sub->status, 'also on the line refund path' );
+		remove_filter( 'beltoft_licenses_cancel_subscription_on_refund', '__return_false' );
+	}
+
 	// Task 4.
 
 	/**

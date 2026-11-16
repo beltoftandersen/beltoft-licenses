@@ -449,6 +449,20 @@ final class Orders {
 			foreach ( array_slice( $candidates, 0, $units ) as $license ) {
 				self::revoke( $license, $order, __( 'its line was refunded', 'beltoft-licenses' ) );
 			}
+
+			// A subscription whose licenses are all revoked would keep billing for nothing.
+			if ( Product::is_subscription( $product ) && Settings::get( 'cancel_subscription_on_refund' ) ) {
+				foreach ( $subscriptions as $subscription ) {
+					$left = array_filter(
+						Licenses::where( 'subscription_id', (int) $subscription->get_id() ),
+						static fn( $l ) => Licenses::STATUS_REVOKED !== $l['status']
+					);
+
+					if ( ! $left ) {
+						self::cancel_subscription( $subscription, $order, __( 'Cancelled: the licenses of this subscription were refunded.', 'beltoft-licenses' ) );
+					}
+				}
+			}
 		}
 	}
 
@@ -474,18 +488,42 @@ final class Orders {
 		}
 
 		foreach ( self::subscriptions_for( $order, array( 'parent', 'renewal', 'resubscribe', 'switch' ) ) as $subscription ) {
-			if ( in_array( $subscription->get_status(), array( 'cancelled', 'expired', 'trash' ), true ) ) {
-				continue;
-			}
+			self::cancel_subscription( $subscription, $order, __( 'Cancelled: the order was fully refunded.', 'beltoft-licenses' ) );
+		}
+	}
 
-			try {
-				$subscription->update_status( 'cancelled', __( 'Cancelled: the order was fully refunded.', 'beltoft-licenses' ) );
-			} catch ( \Exception $e ) {
-				$subscription->add_order_note(
-					/* translators: %s: error message. */
-					sprintf( __( 'Could not cancel after the refund: %s', 'beltoft-licenses' ), $e->getMessage() )
-				);
-			}
+	/**
+	 * Cancels one subscription after a refund, unless it has ended already or a filter vetoes it.
+	 *
+	 * @param object    $subscription Subscription.
+	 * @param \WC_Order $order        The refunded order.
+	 * @param string    $note         Note for the subscription.
+	 */
+	private static function cancel_subscription( $subscription, \WC_Order $order, string $note ): void {
+		if ( in_array( $subscription->get_status(), array( 'cancelled', 'expired', 'trash' ), true ) ) {
+			return;
+		}
+
+		/**
+		 * Filters whether a refund of an order cancels this subscription. A plugin whose
+		 * subscription must outlive a refunded invoice (a usage account that bills many
+		 * services, say) answers false.
+		 *
+		 * @param bool      $cancel       True (default) to cancel.
+		 * @param object    $subscription The subscription.
+		 * @param \WC_Order $order        The refunded order.
+		 */
+		if ( ! apply_filters( 'beltoft_licenses_cancel_subscription_on_refund', true, $subscription, $order ) ) {
+			return;
+		}
+
+		try {
+			$subscription->update_status( 'cancelled', $note );
+		} catch ( \Exception $e ) {
+			$subscription->add_order_note(
+				/* translators: %s: error message. */
+				sprintf( __( 'Could not cancel after the refund: %s', 'beltoft-licenses' ), $e->getMessage() )
+			);
 		}
 	}
 }
