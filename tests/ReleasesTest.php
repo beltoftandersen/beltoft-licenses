@@ -110,6 +110,19 @@ class ReleasesTest extends TestCase {
 		$this->assertSame( array( 'rel-plugin/', 'rel-plugin/inc/x.php', 'rel-plugin/rel-plugin.php' ), $names );
 	}
 
+	public function test_repackage_refuses_a_zip_that_unpacks_far_past_the_size_limit(): void {
+		$this->product();
+		$this->settings( array( 'release_max_mb' => 1 ) );
+		// 3 MB of zeros is a few kilobytes zipped, so it passes the size check on the file.
+		$zip = self::zip( array( 'owner-rel-plugin-abc/' => '', 'owner-rel-plugin-abc/zeros.bin' => str_repeat( "\0", 3 * MB_IN_BYTES ) ) );
+		$this->assertLessThan( MB_IN_BYTES, filesize( $zip ) );
+
+		$result = Publisher::publish( 'rel-plugin', '4.0.0', $zip, '', 'github', true, true );
+		$this->assertWPError( $result );
+		$this->assertSame( 'beltoft_licenses_zip', $result->get_error_code() );
+		$this->assertNull( Software::release( 'rel-plugin', '4.0.0' ) );
+	}
+
 	public function test_refusals(): void {
 		$this->product();
 		$ok = self::zip( array( 'rel-plugin/a.php' => '1' ) );

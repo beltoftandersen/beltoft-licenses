@@ -162,6 +162,20 @@ final class Publisher {
 	 * @return string|\WP_Error Path of the new zip.
 	 */
 	private static function repackage( \ZipArchive $archive, string $from, string $to ) {
+		// Each member is read into memory to be rewritten, and a highly compressed zip is small on disk.
+		// A member larger than the release limit, or a total ten times it, is not a release.
+		$limit = max( 1, (int) Settings::get( 'release_max_mb' ) ) * MB_IN_BYTES;
+		$total = 0;
+		for ( $i = 0; $i < $archive->numFiles; $i++ ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive API.
+			$stat   = $archive->statIndex( $i );
+			$size   = is_array( $stat ) ? (int) $stat['size'] : 0;
+			$total += $size;
+
+			if ( $size > $limit || $total > 10 * $limit ) {
+				return new \WP_Error( 'beltoft_licenses_zip', __( 'The zip unpacks to far more than the release size limit.', 'beltoft-licenses' ) );
+			}
+		}
+
 		$target = wp_tempnam( $to . '.zip' );
 		$out    = new \ZipArchive();
 
