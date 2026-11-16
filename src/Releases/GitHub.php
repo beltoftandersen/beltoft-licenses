@@ -225,6 +225,8 @@ final class GitHub {
 			$url,
 			array(
 				'timeout'     => 120,
+				// One byte over the limit: Publisher refuses a file that reaches it, and a larger one is never written in full.
+				'limit_response_size' => max( 1, (int) Settings::get( 'release_max_mb' ) ) * MB_IN_BYTES + 1,
 				'stream'      => true,
 				'filename'    => $file,
 				'headers'     => $headers,

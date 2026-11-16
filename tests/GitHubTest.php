@@ -140,6 +140,23 @@ class GitHubTest extends TestCase {
 		$this->assertSame( '', (string) get_post_meta( Software::product_id( 'rel-plugin' ), Software::META_VERSION, true ), 'stored but not current' );
 	}
 
+	public function test_the_download_is_capped_at_the_release_size_limit(): void {
+		$this->settings( array( 'release_max_mb' => 5 ) );
+		$limit = null;
+		add_filter(
+			'pre_http_request',
+			function ( $pre, $args ) use ( &$limit ) {
+				$limit = $args['limit_response_size'] ?? null;
+				return array( 'headers' => array(), 'body' => '', 'response' => array( 'code' => 404, 'message' => 'Not Found' ), 'cookies' => array(), 'filename' => null );
+			},
+			10,
+			2
+		);
+		GitHub::process( array( 'repo' => 'beltoft/rel-plugin', 'slug' => 'rel-plugin', 'version' => '9.1.0', 'changelog' => '', 'asset' => null, 'source' => 'https://api.github.com/x' ) );
+
+		$this->assertSame( 5 * MB_IN_BYTES + 1, $limit );
+	}
+
 	public function test_job_records_a_failed_download(): void {
 		add_filter(
 			'pre_http_request',
