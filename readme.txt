@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.10
+Stable tag: 0.8.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,9 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.11 =
+* My Account: a child licence that a tab claims is listed on that tab again (the email domain of a hosting account was missing from the email tab, and its page said it was not found). A child licence is still never a licence of its own on the licenses tab.
 
 = 0.8.10 =
 * A release zip that unpacks far past the size limit is refused before it is repackaged.
