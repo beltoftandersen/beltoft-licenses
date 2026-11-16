@@ -38,6 +38,32 @@ class AccountTest extends TestCase {
 		$this->assertNotContains( $someone['id'], $ids, 'a license linked to another account stays theirs' );
 	}
 
+	public function test_email_changed_by_the_customer_does_not_claim_licenses_held_by_that_email(): void {
+		$victim = $this->license( array( 'email' => 'victim@example.org' ) );
+
+		// The customer saves My Account details with a new email.
+		Endpoint::mark_account_save();
+		wp_update_user( array( 'ID' => $this->user, 'user_email' => 'victim@example.org' ) );
+		$prop = new \ReflectionProperty( Endpoint::class, 'account_save' );
+		$prop->setAccessible( true );
+		$prop->setValue( null, false );
+
+		$this->assertNotContains( $victim['id'], array_column( Endpoint::licenses_for_user( $this->user ), 'id' ) );
+		$this->assertFalse( Endpoint::owns( $victim, $this->user ) );
+
+		// A confirmation flow can vouch for the address.
+		add_filter( 'beltoft_licenses_email_verified', '__return_true' );
+		$this->assertTrue( Endpoint::owns( $victim, $this->user ) );
+		remove_filter( 'beltoft_licenses_email_verified', '__return_true' );
+	}
+
+	public function test_email_changed_by_staff_keeps_matching_licenses(): void {
+		$mine = $this->license( array( 'email' => 'new@example.org' ) );
+		wp_update_user( array( 'ID' => $this->user, 'user_email' => 'new@example.org' ) );
+
+		$this->assertTrue( Endpoint::owns( $mine, $this->user ) );
+	}
+
 	public function test_page_shows_key_sites_and_free_button(): void {
 		$this->software( 'my-plugin', '2.1.0' );
 		$l = $this->license( array( 'user_id' => $this->user, 'max_activations' => 3 ) );

@@ -24,6 +24,11 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Endpoint {
 
+	/**
+	 * User meta: the email a customer set themselves and has not verified.
+	 */
+	const UNVERIFIED_META = 'beltoft_licenses_unverified_email';
+
 	public const OPTION_FLUSH = 'beltoft_licenses_flush_rewrites';
 
 	/**
@@ -45,6 +50,8 @@ final class Endpoint {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'styles' ) );
 		add_action( 'init', array( __CLASS__, 'register_groups' ), 20 );
 		add_action( 'init', array( __CLASS__, 'maybe_flush' ), 99 );
+		add_action( 'woocommerce_save_account_details_errors', array( __CLASS__, 'mark_account_save' ) );
+		add_action( 'profile_update', array( __CLASS__, 'flag_changed_email' ), 10, 2 );
 		add_action( 'update_option_' . Settings::OPTION, array( __CLASS__, 'settings_saved' ), 10, 2 );
 	}
 
@@ -275,15 +282,72 @@ final class Endpoint {
 			$licenses[ $license['id'] ] = $license;
 		}
 
-		foreach ( Licenses::where( 'email', (string) $user->user_email ) as $license ) {
-			if ( null === $license['user_id'] ) {
-				$licenses[ $license['id'] ] = $license;
+		if ( self::email_verified( $user ) ) {
+			foreach ( Licenses::where( 'email', (string) $user->user_email ) as $license ) {
+				if ( null === $license['user_id'] ) {
+					$licenses[ $license['id'] ] = $license;
+				}
 			}
 		}
 
 		ksort( $licenses );
 
 		return apply_filters( 'beltoft_licenses_account_licenses', array_values( $licenses ), $user_id );
+	}
+
+	/**
+	 * Set while the customer saves My Account details, so a changed email can be told from an
+	 * email that staff or a confirmation flow changed.
+	 *
+	 * @var bool
+	 */
+	private static $account_save = false;
+
+	/**
+	 * Marks that the current request is the customer saving their own account details.
+	 */
+	public static function mark_account_save(): void {
+		self::$account_save = true;
+	}
+
+	/**
+	 * A customer who changes their own email in My Account has not proved the new address, so
+	 * licenses held by that address alone are not shown to them until the address is verified.
+	 *
+	 * @param int      $user_id  User ID.
+	 * @param \WP_User $old_user User before the update.
+	 */
+	public static function flag_changed_email( $user_id, $old_user = null ): void {
+		if ( ! self::$account_save || ! $old_user instanceof \WP_User ) {
+			return;
+		}
+
+		$user = get_userdata( (int) $user_id );
+
+		if ( $user && strtolower( (string) $user->user_email ) !== strtolower( (string) $old_user->user_email ) ) {
+			update_user_meta( (int) $user_id, self::UNVERIFIED_META, strtolower( (string) $user->user_email ) );
+		}
+	}
+
+	/**
+	 * Is the user's current email address one they have not proved? Licenses held only by an
+	 * email address are shown to the account only while it is.
+	 *
+	 * @param \WP_User $user User.
+	 */
+	public static function email_verified( \WP_User $user ): bool {
+		$unverified = (string) get_user_meta( $user->ID, self::UNVERIFIED_META, true );
+		$verified   = '' === $unverified || strtolower( (string) $user->user_email ) !== $unverified;
+
+		/**
+		 * Filters whether the account's email address counts as verified for matching licenses
+		 * that are held by email only. A confirmation flow answers true (and may delete the
+		 * user meta beltoft_licenses_unverified_email).
+		 *
+		 * @param bool     $verified Verified.
+		 * @param \WP_User $user     User.
+		 */
+		return (bool) apply_filters( 'beltoft_licenses_email_verified', $verified, $user );
 	}
 
 	/**
