@@ -306,6 +306,39 @@ final class ResourcesTest extends TestCase {
 		remove_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
 	}
 
+	public function test_resources_for_reads_many_licenses_in_one_query_and_matches_resources() {
+		global $wpdb;
+
+		$a = $this->license( array( 'max_activations' => 0 ) );
+		$b = $this->license( array( 'max_activations' => 0 ) );
+		$c = $this->license( array( 'max_activations' => 0 ) );
+		Licenses::add_resource( $a, 'vm', 'a-1', array( 'n' => 1 ) );
+		Licenses::add_resource( $a, 'db', 'a-2' );
+		Licenses::add_resource( $b, 'vm', 'b-1' );
+		Licenses::activate( $b, 'site.test' );
+		$closed = Licenses::add_resource( $b, 'vm', 'b-2' );
+		Licenses::close_resource( $b, 'vm', 'b-2' );
+		$this->assertTrue( $closed['success'] );
+
+		$ids    = array( (int) $a['id'], (int) $b['id'], (int) $c['id'], 0, (int) $a['id'] );
+		$before = $wpdb->num_queries;
+		$all    = Licenses::resources_for( $ids );
+		$this->assertSame( 1, $wpdb->num_queries - $before, 'one query for any number of licences' );
+
+		$this->assertSame( array( (int) $a['id'], (int) $b['id'], (int) $c['id'] ), array_keys( $all ) );
+		foreach ( array( $a, $b, $c ) as $license ) {
+			$this->assertSame( Licenses::resources( (int) $license['id'] ), $all[ (int) $license['id'] ] );
+		}
+		$this->assertSame( array( 'a-1', 'a-2' ), array_column( $all[ (int) $a['id'] ], 'domain' ) );
+		$this->assertSame( array( 'n' => 1 ), $all[ (int) $a['id'] ][0]['meta'] );
+		$this->assertSame( array( 'b-1' ), array_column( $all[ (int) $b['id'] ], 'domain' ), 'no site, no closed row' );
+		$this->assertSame( array(), $all[ (int) $c['id'] ] );
+
+		$vm = Licenses::resources_for( array( (int) $a['id'], (int) $b['id'] ), 'vm' );
+		$this->assertSame( array( 'a-1' ), array_column( $vm[ (int) $a['id'] ], 'domain' ) );
+		$this->assertSame( array(), Licenses::resources_for( array() ) );
+	}
+
 	public function test_live_resource_ids_filters_pages_and_orders() {
 		$license = $this->license( array( 'max_activations' => 0 ) );
 		Licenses::activate( $license, 'a.test' );

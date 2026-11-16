@@ -818,6 +818,42 @@ final class Licenses {
 	}
 
 	/**
+	 * Live resources of many licenses in one query: what resources() gives for each ID.
+	 *
+	 * @param int[]  $license_ids License IDs.
+	 * @param string $kind        Only this kind; empty for all.
+	 * @return array<int, array<int, array<string, mixed>>> Rows with meta decoded, oldest first, keyed by license ID; every asked ID is a key, with an empty list when it has none.
+	 */
+	public static function resources_for( array $license_ids, string $kind = '' ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $license_ids ), static fn( $id ) => $id > 0 ) ) );
+		$out = array_fill_keys( $ids, array() );
+
+		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
+			$marks = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+			$sql   = "SELECT * FROM %i WHERE license_id IN ( $marks ) AND deactivated_at IS NULL AND kind <> 'site'";
+			$args  = array_merge( array( Install::tables()['activations'] ), $chunk );
+
+			if ( '' !== $kind ) {
+				$sql   .= ' AND kind = %s';
+				$args[] = $kind;
+			}
+
+			$sql .= ' ORDER BY activated_at ASC, id ASC';
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- custom table, always fresh; the placeholders are built to match the values.
+			$rows = (array) $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+			foreach ( $rows as $row ) {
+				$out[ (int) $row['license_id'] ][] = self::decode_meta( $row );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * IDs of live resources: activations that are not closed and not a site.
 	 *
 	 * @param string $kind  Only this kind; empty for all kinds.
