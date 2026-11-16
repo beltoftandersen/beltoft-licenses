@@ -21,7 +21,7 @@ echo esc_html( wp_strip_all_tags( $email_heading ) );
 echo "\n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n";
 
 /* translators: 1: product name, 2: masked license key. */
-echo esc_html( sprintf( __( 'Your %1$s license (%2$s) has been revoked. It no longer works: the software will not get updates or support, and sites using it can no longer activate it.', 'beltoft-licenses' ), $product, $masked_key ) ) . "\n\n";
+echo \BeltoftLicenses\Account\View::plain( sprintf( __( 'Your %1$s license (%2$s) has been revoked. It no longer works: the software will not get updates or support, and sites using it can no longer activate it.', 'beltoft-licenses' ), $product, $masked_key ) ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 
 if ( $account_url ) {
 	echo esc_html__( 'See your licenses:', 'beltoft-licenses' ) . ' ' . esc_url( $account_url ) . "\n\n";

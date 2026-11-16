@@ -95,11 +95,11 @@ final class SubscriptionEmails {
 			echo "\n" . esc_html( strtoupper( __( 'Licenses', 'beltoft-licenses' ) ) ) . "\n\n";
 			foreach ( $licenses as $license ) {
 				$view = View::license( $license );
-				echo esc_html( $view['product'] . ': ' . $view['key'] ) . "\n";
-				echo esc_html( self::sites_line( $view ) ) . "\n\n";
+				echo View::plain( $view['product'] . ': ' . $view['key'] ) . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
+				echo View::plain( self::sites_line( $view ) ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 			}
 			/* translators: %s: URL of the My Account licenses page. */
-			echo esc_html( sprintf( __( 'Manage your licenses: %s', 'beltoft-licenses' ), $manage ) ) . "\n\n";
+			echo View::plain( sprintf( __( 'Manage your licenses: %s', 'beltoft-licenses' ), $manage ) ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 			return;
 		}
 

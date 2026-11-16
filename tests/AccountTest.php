@@ -288,6 +288,23 @@ class AccountTest extends TestCase {
 		$this->assertSame( '', (string) ob_get_clean(), 'never in the shop\'s copy' );
 	}
 
+	public function test_plain_text_order_email_keeps_a_product_name_unescaped(): void {
+		$product = new \WC_Product_Simple();
+		$product->set_name( "Tom & Jerry's Plugin" );
+		$product->save();
+		$order = wc_create_order();
+		$order->set_status( 'processing' );
+		$order->save();
+		$l = $this->license( array( 'order_id' => $order->get_id(), 'product_id' => $product->get_id() ) );
+
+		ob_start();
+		OrderLicenses::email( $order, false, true );
+		$plain = (string) ob_get_clean();
+
+		$this->assertStringContainsString( "Tom & Jerry's Plugin: " . $l['license_key'], $plain );
+		$this->assertStringNotContainsString( '&amp;', $plain );
+	}
+
 	public function test_ended_licenses_show_their_status_in_order_pages_and_emails(): void {
 		$order = wc_create_order();
 		$order->set_billing_email( 'me@example.org' );

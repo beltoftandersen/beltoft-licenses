@@ -22,10 +22,10 @@ echo esc_html( wp_strip_all_tags( $email_heading ) );
 echo "\n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n";
 
 /* translators: 1: product name, 2: version. */
-echo esc_html( sprintf( __( 'Version %2$s of %1$s is now available.', 'beltoft-licenses' ), $product, $version ) ) . "\n\n";
+echo \BeltoftLicenses\Account\View::plain( sprintf( __( 'Version %2$s of %1$s is now available.', 'beltoft-licenses' ), $product, $version ) ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 
 if ( $changelog ) {
-	echo esc_html__( 'What is new', 'beltoft-licenses' ) . "\n" . esc_html( $changelog ) . "\n\n";
+	echo esc_html__( 'What is new', 'beltoft-licenses' ) . "\n" . \BeltoftLicenses\Account\View::plain( $changelog ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 }
 
 if ( $account_url ) {

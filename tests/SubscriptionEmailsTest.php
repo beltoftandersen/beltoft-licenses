@@ -67,6 +67,19 @@ class SubscriptionEmailsTest extends TestCase {
 		$this->assertStringContainsString( '1 of 1 server', $this->render( $this->email( 'customer_notification_auto_renewal' ) ) );
 	}
 
+	public function test_plain_text_keeps_a_product_name_and_the_link_unescaped(): void {
+		$product = new \WC_Product_Simple();
+		$product->set_name( "Tom & Jerry's Plugin" );
+		$product->save();
+		$this->license( array( 'subscription_id' => $this->subscription->get_id(), 'product_id' => $product->get_id() ) );
+
+		$text = $this->render( $this->email( 'customer_notification_subscription_expiry' ), true );
+
+		$this->assertStringContainsString( "Tom & Jerry's Plugin: ", $text );
+		$this->assertStringNotContainsString( '&amp;', $text );
+		$this->assertStringNotContainsString( '&#039;', $text );
+	}
+
 	public function test_plain_text(): void {
 		$license = $this->license( array( 'subscription_id' => $this->subscription->get_id() ) );
 

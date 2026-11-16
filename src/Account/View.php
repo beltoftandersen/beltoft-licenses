@@ -92,6 +92,16 @@ final class View {
 	}
 
 	/**
+	 * Text for a plain text email: tags stripped, and the entities WordPress stored in a name
+	 * (&amp; for an ampersand) turned back, because a plain text email has no HTML to read them.
+	 *
+	 * @param string $text Text.
+	 */
+	public static function plain( string $text ): string {
+		return wp_specialchars_decode( wp_strip_all_tags( $text ), ENT_QUOTES );
+	}
+
+	/**
 	 * Translated status.
 	 *
 	 * @param string $status Status.

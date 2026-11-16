@@ -120,7 +120,8 @@ final class OrderLicenses {
 		if ( $plain_text ) {
 			echo "\n" . esc_html( strtoupper( __( 'License keys', 'beltoft-licenses' ) ) ) . "\n\n";
 			foreach ( $licenses as $license ) {
-				echo esc_html( View::product_name( $license ) . ': ' . $license['license_key'] . self::status_suffix( $license ) ) . "\n";
+				// Plain text has no HTML to escape for: strip tags, keep & and quotes as typed.
+				echo View::plain( View::product_name( $license ) . ': ' . $license['license_key'] . self::status_suffix( $license ) ) . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text email, tags stripped.
 			}
 			echo "\n";
 			return;
