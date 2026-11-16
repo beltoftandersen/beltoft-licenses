@@ -452,6 +452,44 @@ final class Licenses {
 	 * @return array{success:bool, message:string, code:string}
 	 */
 	public static function activate( array $license, string $domain ): array {
+		return self::with_activation_lock(
+			$license,
+			static function () use ( $license, $domain ) {
+				return self::activate_locked( $license, $domain );
+			}
+		);
+	}
+
+	/**
+	 * Runs a gate-then-insert step under one named lock per license, so two requests at once
+	 * cannot both pass the activation limit.
+	 *
+	 * @param array<string, mixed> $license  License.
+	 * @param callable             $callback Work to do.
+	 * @return array<string, mixed>
+	 */
+	private static function with_activation_lock( array $license, callable $callback ): array {
+		list( $locked, $result ) = Locks::with( Locks::name( 'act', (int) $license['id'] ), Locks::wait(), $callback );
+
+		if ( ! $locked ) {
+			return array(
+				'success' => false,
+				'code'    => 'error',
+				'message' => 'Another activation is running, try again',
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Body of activate(), run under the license's activation lock.
+	 *
+	 * @param array<string, mixed> $license License.
+	 * @param string               $domain  Normalised domain.
+	 * @return array{success:bool, message:string, code:string}
+	 */
+	private static function activate_locked( array $license, string $domain ): array {
 		global $wpdb;
 
 		$refused = self::gate( $license, self::is_live_on( (int) $license['id'], $domain ), 'Domain already activated' );
@@ -566,8 +604,6 @@ final class Licenses {
 	 * @return array{success:bool, message:string, code:string, activation_id?:int}
 	 */
 	public static function add_resource( array $license, string $kind, string $identifier, array $meta = array() ): array {
-		global $wpdb;
-
 		if ( ! self::valid_resource( $kind, $identifier ) ) {
 			return array(
 				'success' => false,
@@ -575,6 +611,26 @@ final class Licenses {
 				'message' => 'Invalid kind or identifier',
 			);
 		}
+
+		return self::with_activation_lock(
+			$license,
+			static function () use ( $license, $kind, $identifier, $meta ) {
+				return self::add_resource_locked( $license, $kind, $identifier, $meta );
+			}
+		);
+	}
+
+	/**
+	 * Body of add_resource(), run under the license's activation lock.
+	 *
+	 * @param array<string, mixed> $license    License.
+	 * @param string               $kind       Kind.
+	 * @param string               $identifier Resource identifier.
+	 * @param array<string, mixed> $meta       Meta.
+	 * @return array{success:bool, message:string, code:string, activation_id?:int}
+	 */
+	private static function add_resource_locked( array $license, string $kind, string $identifier, array $meta ): array {
+		global $wpdb;
 
 		$live    = self::live_row( (int) $license['id'], $kind, $identifier );
 		$refused = self::gate( $license, null !== $live, 'Resource already active' );

@@ -274,6 +274,38 @@ final class ResourcesTest extends TestCase {
 		$this->assertNull( $row['updated_at'] );
 	}
 
+	/**
+	 * Holds the activation lock of a license on a second connection, as a parallel request would.
+	 *
+	 * @param int $license_id License ID.
+	 * @return \mysqli
+	 */
+	private function hold_activation_lock( int $license_id ): \mysqli {
+		$host = explode( ':', DB_HOST );
+		$link = new \mysqli( $host[0], DB_USER, DB_PASSWORD, DB_NAME, isset( $host[1] ) && ctype_digit( $host[1] ) ? (int) $host[1] : 3306 );
+		$name = \BeltoftLicenses\Locks::name( 'act', $license_id );
+		$link->query( "SELECT GET_LOCK('" . $link->real_escape_string( $name ) . "', 1)" );
+
+		return $link;
+	}
+
+	public function test_activate_and_add_resource_wait_for_the_license_activation_lock() {
+		add_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
+		$license = $this->license( array( 'max_activations' => 1 ) );
+		$link    = $this->hold_activation_lock( (int) $license['id'] );
+
+		$a = Licenses::activate( $license, 'a.test' );
+		$b = Licenses::add_resource( $license, 'vm', 'vm-1' );
+		$this->assertFalse( $a['success'] );
+		$this->assertFalse( $b['success'] );
+		$this->assertSame( array(), Licenses::live_activations( (int) $license['id'] ) );
+
+		$link->query( "SELECT RELEASE_LOCK('" . \BeltoftLicenses\Locks::name( 'act', (int) $license['id'] ) . "')" );
+		$link->close();
+		$this->assertSame( 'activated', Licenses::activate( $license, 'a.test' )['code'] );
+		remove_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
+	}
+
 	public function test_live_resource_ids_filters_pages_and_orders() {
 		$license = $this->license( array( 'max_activations' => 0 ) );
 		Licenses::activate( $license, 'a.test' );
