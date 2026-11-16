@@ -162,6 +162,30 @@ class AccountTest extends TestCase {
 		Endpoint::download( $mine['id'], self::factory()->user->create() );
 	}
 
+	public function test_licenses_for_user_is_read_once_per_request_and_forgotten_on_a_write(): void {
+		global $wpdb;
+
+		$first = $this->license( array( 'user_id' => $this->user ) );
+		$this->assertSame( array( $first['id'] ), array_column( Endpoint::licenses_for_user( $this->user ), 'id' ) );
+
+		$before = $wpdb->num_queries;
+		for ( $i = 0; $i < 10; $i++ ) {
+			Endpoint::licenses_for_user( $this->user );
+		}
+		$this->assertSame( 0, $wpdb->num_queries - $before, 'repeated calls ask nothing' );
+
+		$second = $this->license( array( 'user_id' => $this->user ) );
+		$this->assertSame( array( $first['id'], $second['id'] ), array_column( Endpoint::licenses_for_user( $this->user ), 'id' ), 'a new licence is seen' );
+
+		Licenses::update( (int) $first['id'], array( 'user_id' => null ) );
+		$this->assertSame( array( $second['id'] ), array_column( Endpoint::licenses_for_user( $this->user ), 'id' ), 'a changed licence is seen' );
+
+		$by_email = $this->license( array( 'email' => get_userdata( $this->user )->user_email ) );
+		$this->assertContains( $by_email['id'], array_column( Endpoint::licenses_for_user( $this->user ), 'id' ) );
+		update_user_meta( $this->user, Endpoint::UNVERIFIED_META, strtolower( get_userdata( $this->user )->user_email ) );
+		$this->assertNotContains( $by_email['id'], array_column( Endpoint::licenses_for_user( $this->user ), 'id' ), 'an unverified email is seen' );
+	}
+
 	public function test_resource_label_filter_changes_every_usage_label(): void {
 		$l = $this->license( array( 'user_id' => $this->user, 'max_activations' => 1 ) );
 		Licenses::add_resource( $l, 'vm', 'vm-1' );

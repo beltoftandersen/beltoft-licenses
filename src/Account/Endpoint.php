@@ -52,6 +52,14 @@ final class Endpoint {
 		add_action( 'init', array( __CLASS__, 'maybe_flush' ), 99 );
 		add_action( 'woocommerce_save_account_details_errors', array( __CLASS__, 'mark_account_save' ) );
 		add_action( 'profile_update', array( __CLASS__, 'flag_changed_email' ), 10, 2 );
+
+		// The list of a customer's licenses is read once per request; any write that can change it forgets it.
+		foreach ( array( 'beltoft_licenses_license_created', 'beltoft_licenses_license_updated', 'beltoft_licenses_activated', 'beltoft_licenses_deactivated', 'profile_update', 'deleted_user' ) as $hook ) {
+			add_action( $hook, array( __CLASS__, 'forget_user_licenses' ) );
+		}
+		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $hook ) {
+			add_action( $hook, array( __CLASS__, 'forget_user_licenses_on_meta' ), 10, 3 );
+		}
 		add_action( 'update_option_' . Settings::OPTION, array( __CLASS__, 'settings_saved' ), 10, 2 );
 	}
 
@@ -270,6 +278,52 @@ final class Endpoint {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function licenses_for_user( int $user_id ): array {
+		$user = get_userdata( $user_id );
+
+		// The email check is part of the key: its answer can change inside a request (a confirmation flow, a filter).
+		$key = $user_id . ( $user && self::email_verified( $user ) ? ':v' : ':u' );
+
+		if ( ! isset( self::$user_licenses[ $key ] ) ) {
+			self::$user_licenses[ $key ] = self::read_licenses_for_user( $user_id );
+		}
+
+		return self::$user_licenses[ $key ];
+	}
+
+	/**
+	 * The result of licenses_for_user for each user, for this request.
+	 *
+	 * @var array<string, array<int, array<string, mixed>>>
+	 */
+	private static $user_licenses = array();
+
+	/**
+	 * Forgets the remembered lists. Hooked to every write that can change one.
+	 */
+	public static function forget_user_licenses(): void {
+		self::$user_licenses = array();
+	}
+
+	/**
+	 * Forgets the remembered lists when the unverified-email marker of a user changes.
+	 *
+	 * @param int|string[] $meta_id Meta ID (or IDs).
+	 * @param int          $user_id User ID.
+	 * @param string       $key     Meta key.
+	 */
+	public static function forget_user_licenses_on_meta( $meta_id, $user_id, $key ): void {
+		if ( self::UNVERIFIED_META === $key ) {
+			self::forget_user_licenses();
+		}
+	}
+
+	/**
+	 * Reads the licenses of a user.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function read_licenses_for_user( int $user_id ): array {
 		$user = get_userdata( $user_id );
 
 		if ( ! $user ) {
