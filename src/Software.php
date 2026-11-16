@@ -208,7 +208,6 @@ final class Software {
 			if ( $make_current ) {
 				self::set_current( $slug, $version );
 			}
-			do_action( 'beltoft_licenses_release_published', $slug, $version, $make_current );
 		}
 
 		return $ok;

@@ -78,7 +78,7 @@ final class Controller {
 		$body['expires_at']      = Licenses::iso( $license['expires_at'] );
 		$body['max_activations'] = $license['max_activations'];
 
-		return new \WP_REST_Response( apply_filters( 'beltoft_licenses_validate_response', $body, $license, $request ), 200 );
+		return new \WP_REST_Response( $body, 200 );
 	}
 
 	/**
