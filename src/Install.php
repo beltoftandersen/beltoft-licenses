@@ -16,6 +16,7 @@ final class Install {
 
 	public const DB_VERSION        = '4';
 	public const OPTION_DB_VERSION = 'beltoft_licenses_db_version';
+	public const TRANSIENT_RETRY   = 'beltoft_licenses_schema_retry';
 	public const OPTION_SECRET     = 'beltoft_licenses_token_secret';
 
 	/**
@@ -65,11 +66,21 @@ final class Install {
 	 */
 	public static function maybe_upgrade(): void {
 		if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
+			// A step that failed (no ALTER right, a lock timeout) is tried again in an hour, not on every request.
+			if ( get_transient( self::TRANSIENT_RETRY ) ) {
+				return;
+			}
+
 			// Existing duplicates are only reported, never changed (and cannot block the new unique key: it starts empty).
 			Duplicates::schedule_scan();
 			self::create_tables();
 			self::ensure_secret();
 			// An update never runs the activation hook: rules for new endpoints come from here.
+			if ( self::DB_VERSION !== get_option( self::OPTION_DB_VERSION ) ) {
+				set_transient( self::TRANSIENT_RETRY, 1, HOUR_IN_SECONDS );
+				return;
+			}
+
 			update_option( Account\Endpoint::OPTION_FLUSH, 1 );
 		}
 	}

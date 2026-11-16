@@ -145,6 +145,34 @@ final class SchemaV3Test extends TestCase {
 		// phpcs:enable
 	}
 
+	public function test_a_failed_upgrade_is_retried_in_an_hour_not_on_every_request(): void {
+		delete_option( \BeltoftLicenses\Account\Endpoint::OPTION_FLUSH );
+		delete_transient( Install::TRANSIENT_RETRY );
+		update_option( Install::OPTION_DB_VERSION, '3' );
+
+		// The version cannot be stored, as when the schema step failed.
+		$keep = static fn() => '3';
+		add_filter( 'pre_update_option_' . Install::OPTION_DB_VERSION, $keep );
+		Install::maybe_upgrade();
+		remove_filter( 'pre_update_option_' . Install::OPTION_DB_VERSION, $keep );
+
+		$this->assertNotFalse( get_transient( Install::TRANSIENT_RETRY ) );
+		$this->assertFalse( get_option( \BeltoftLicenses\Account\Endpoint::OPTION_FLUSH ), 'no rewrite flush after a failed step' );
+
+		// Within the hour nothing runs again.
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		Install::maybe_upgrade();
+		$this->assertLessThan( 3, $wpdb->num_queries - $before );
+		$this->assertFalse( get_option( \BeltoftLicenses\Account\Endpoint::OPTION_FLUSH ) );
+
+		// After the hour it runs, succeeds and flushes once.
+		delete_transient( Install::TRANSIENT_RETRY );
+		Install::maybe_upgrade();
+		$this->assertSame( Install::DB_VERSION, get_option( Install::OPTION_DB_VERSION ) );
+		$this->assertNotFalse( get_option( \BeltoftLicenses\Account\Endpoint::OPTION_FLUSH ) );
+	}
+
 	public function test_activating_over_a_v2_table_swaps_the_unique_key(): void {
 		$this->old_table();
 
