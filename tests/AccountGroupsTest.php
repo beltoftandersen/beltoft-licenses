@@ -35,6 +35,16 @@ class AccountGroupsTest extends TestCase {
 		return Endpoint::menu( array( 'dashboard' => 'Dashboard', 'customer-logout' => 'Log out' ) );
 	}
 
+	public function test_a_child_licence_that_a_tab_claims_is_on_that_tab(): void {
+		$this->domains_tab();
+		$child = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'domain-mail', 'source' => 'child' ) );
+
+		$tabs = Endpoint::split( array( $child ) );
+
+		$this->assertSame( array( $child['id'] ), array_column( $tabs['domains'], 'id' ), 'The tab that claims a child lists it.' );
+		$this->assertSame( array(), $tabs[''], 'It is still not a licence of its own.' );
+	}
+
 	public function test_a_child_licence_is_on_no_tab(): void {
 		$plugin = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'my-plugin' ) );
 		$child  = $this->license( array( 'user_id' => $this->user, 'product_slug' => 'hosting-mail', 'source' => 'child' ) );

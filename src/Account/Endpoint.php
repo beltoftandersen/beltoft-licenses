@@ -193,13 +193,16 @@ final class Endpoint {
 		$tabs = array( '' => array() ) + array_fill_keys( array_keys( self::groups() ), array() );
 
 		foreach ( $licenses as $license ) {
-			// A child licence (made by a service for one of its parts, such as the mailbox of a hosting account) belongs to its parent
-			// and is shown with it, never as a licence of its own.
-			if ( 'child' === (string) ( $license['source'] ?? '' ) ) {
+			$home = self::home_of( $license );
+
+			// A child licence (made by a service for one of its parts, such as the mailbox of a hosting account) belongs to its parent:
+			// it is never a licence of its own on the licenses tab. A tab that claims it (the email tab lists the email domain of a
+			// hosting account) still gets it: until 0.8.10 it was dropped there too, and that page was empty and said "not found".
+			if ( '' === $home && 'child' === (string) ( $license['source'] ?? '' ) ) {
 				continue;
 			}
 
-			$tabs[ self::home_of( $license ) ][] = $license;
+			$tabs[ $home ][] = $license;
 		}
 
 		return $tabs;
