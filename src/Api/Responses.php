@@ -34,6 +34,8 @@ final class Responses {
 			'license_not_active'   => array( 400, 'License is %s' ),
 			'license_expired'      => array( 400, 'License has expired' ),
 			'activation_limit'     => array( 400, 'Maximum activations reached (%d)' ),
+			'invalid_domain'       => array( 400, 'domain is too long' ),
+			'error'                => array( 503, 'The activation could not be stored, try again' ),
 			'not_activated'        => array( 400, 'No active activation found for this domain' ),
 			'download_not_active'  => array( 403, 'License is not active. Renew your subscription to download updates.' ),
 			'download_expired'     => array( 403, 'License has expired. Renew your subscription to download updates.' ),

@@ -492,6 +492,15 @@ final class Licenses {
 	private static function activate_locked( array $license, string $domain ): array {
 		global $wpdb;
 
+		if ( strlen( $domain ) > 190 ) {
+			// The live key holds the first 191 characters; a longer name would be cut and never match again.
+			return array(
+				'success' => false,
+				'code'    => 'invalid_domain',
+				'message' => 'domain is too long',
+			);
+		}
+
 		$refused = self::gate( $license, self::is_live_on( (int) $license['id'], $domain ), 'Domain already activated' );
 
 		if ( $refused ) {
@@ -514,8 +523,16 @@ final class Licenses {
 		$wpdb->suppress_errors( $suppress );
 
 		// Two requests for the same site at once: the unique key stops the second, which then
-		// counts as already active.
+		// counts as already active. Any other failure stored nothing and is an error.
 		if ( false === $inserted ) {
+			if ( ! self::is_live_on( (int) $license['id'], $domain ) ) {
+				return array(
+					'success' => false,
+					'code'    => 'error',
+					'message' => 'The activation could not be stored, try again',
+				);
+			}
+
 			return array(
 				'success' => true,
 				'code'    => 'already_active',

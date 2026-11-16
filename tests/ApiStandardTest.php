@@ -11,6 +11,30 @@ use BeltoftLicenses\Licenses;
 
 class ApiStandardTest extends TestCase {
 
+	public function test_a_domain_that_would_be_cut_is_refused_and_a_busy_lock_is_an_error(): void {
+		$l    = $this->license( array( 'max_activations' => 0 ) );
+		$long = str_repeat( 'a', 200 ) . '.example';
+
+		$r = $this->api( 'POST', 'activate', array( 'license_key' => $l['license_key'], 'domain' => $long ) );
+		$this->assertSame( 400, $r->get_status() );
+		$this->assertSame( 'invalid_domain', $this->body( $r )['code'] );
+		$this->assertSame( array(), \BeltoftLicenses\Licenses::live_activations( (int) $l['id'] ) );
+
+		// The lock held elsewhere: an error answer, not a PHP error and not success.
+		add_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
+		$host = explode( ':', DB_HOST );
+		$link = new \mysqli( $host[0], DB_USER, DB_PASSWORD, DB_NAME, isset( $host[1] ) && ctype_digit( $host[1] ) ? (int) $host[1] : 3306 );
+		$name = \BeltoftLicenses\Locks::name( 'act', (int) $l['id'] );
+		$link->query( "SELECT GET_LOCK('" . $link->real_escape_string( $name ) . "', 1)" );
+		$r = $this->api( 'POST', 'activate', array( 'license_key' => $l['license_key'], 'domain' => 'ok.example' ) );
+		$link->query( "SELECT RELEASE_LOCK('" . $link->real_escape_string( $name ) . "')" );
+		$link->close();
+		remove_filter( 'beltoft_licenses_lock_wait', '__return_zero' );
+
+		$this->assertSame( 503, $r->get_status() );
+		$this->assertFalse( $this->body( $r )['success'] );
+	}
+
 	public function test_full_flow_on_rest_urls(): void {
 		$this->software( 'my-plugin', '2.0.0' );
 		$l = $this->license( array( 'max_activations' => 1 ) );
