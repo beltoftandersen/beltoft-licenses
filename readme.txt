@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.9
+Stable tag: 0.8.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,13 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.10 =
+* A release zip that unpacks far past the size limit is refused before it is repackaged.
+* Removing the plugin with its data removes every option and transient of the plugin and the default release folder.
+* Plain text emails keep the characters & and ' as they are.
+* New: `Licenses::resources_for()` reads the live resources of many licences in one query; the account list of a customer is read once per request.
+* Removed two extension points nothing used: the filter `beltoft_licenses_validate_response` and the action `beltoft_licenses_release_published`.
 
 = 0.8.9 =
 * Fixes from the November review, each with a test.
