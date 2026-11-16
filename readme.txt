@@ -4,7 +4,7 @@ Tags: license keys, software licensing, woocommerce, subscriptions, plugin updat
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.8.8
+Stable tag: 0.8.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,14 @@ Imported sites are not checked against the site limit. Plugins built on this one
 Only if "Delete all licenses, releases and settings when the plugin is deleted" is ticked under Settings → Licenses → Advanced.
 
 == Changelog ==
+
+= 0.8.9 =
+* Fixes from the November review, each with a test.
+* Two sites activating the same licence at the same moment can no longer go over the activation limit; a busy licence answers with an error and the site tries again.
+* A licence that belongs to an email address only (no account) is not shown to an account whose email the customer changed themselves, until the new address is verified (filter `beltoft_licenses_email_verified`).
+* Refunding every licensed unit of a subscription line cancels the subscription; the new filter `beltoft_licenses_cancel_subscription_on_refund` lets another plugin keep a subscription that a refund would cancel.
+* A failed database upgrade is tried again after an hour, not on every request.
+* A domain longer than 190 characters is refused, a failed activation is reported as an error, the once-only mail marker is found however many events a licence has, and a release download stops at the size limit.
 
 = 0.8.8 =
 * My Account: a child licence (made by a service for one of its parts) is on no tab; it belongs to its parent service.
