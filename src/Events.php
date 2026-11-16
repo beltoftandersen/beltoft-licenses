@@ -68,6 +68,23 @@ final class Events {
 	}
 
 	/**
+	 * Is there an event of this type whose message holds this marker, however long ago?
+	 *
+	 * @param int    $license_id License ID.
+	 * @param string $type       Event type.
+	 * @param string $marker     Text the message contains.
+	 */
+	public static function has_marker( int $license_id, string $type, string $marker ): bool {
+		global $wpdb;
+
+		$table = Install::tables()['events'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table.
+		$found = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM %i WHERE license_id = %d AND type = %s AND message LIKE %s LIMIT 1', $table, $license_id, $type, '%' . $wpdb->esc_like( $marker ) . '%' ) );
+
+		return null !== $found;
+	}
+
+	/**
 	 * Action handler.
 	 *
 	 * @param array<string, mixed> $license License.

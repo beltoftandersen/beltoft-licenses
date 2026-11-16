@@ -95,10 +95,8 @@ final class Manager {
 		$type   = 'email_' . $status;
 		$marker = Licenses::STATUS_EXPIRED === $status ? '[' . (string) $license['expires_at'] . ']' : '[revoked]';
 
-		foreach ( Events::for_license( (int) $license['id'], 500 ) as $event ) {
-			if ( $type === $event['type'] && false !== strpos( (string) $event['message'], $marker ) ) {
-				return;
-			}
+		if ( Events::has_marker( (int) $license['id'], $type, $marker ) ) {
+			return;
 		}
 
 		// Recorded only once the email went out, so a failed send is tried again on the next change.

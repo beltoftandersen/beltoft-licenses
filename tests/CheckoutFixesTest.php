@@ -588,4 +588,18 @@ class CheckoutFixesTest extends TestCase {
 		$types = array_column( \BeltoftLicenses\Events::for_license( $license['id'] ), 'type' );
 		$this->assertNotContains( 'email_revoked', $types );
 	}
+
+	public function test_the_told_marker_is_found_after_many_later_events(): void {
+		$license = $this->license( array( 'email' => 'cust@example.org' ) );
+		$this->fresh_mailer();
+		$first = $this->capture_mail( static fn() => Licenses::update( $license['id'], array( 'status' => 'revoked' ) ) );
+		$this->assertCount( 1, $first );
+
+		for ( $i = 0; $i < 520; $i++ ) {
+			\BeltoftLicenses\Events::add( (int) $license['id'], 'usage', 'later event ' . $i );
+		}
+
+		$again = $this->capture_mail( static fn() => \BeltoftLicenses\Emails\Manager::on_change( Licenses::find( (int) $license['id'] ) ) );
+		$this->assertCount( 0, $again, 'a revoked licence is told once, however many events follow' );
+	}
 }
