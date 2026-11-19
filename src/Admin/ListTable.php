@@ -42,7 +42,7 @@ final class ListTable extends \WP_List_Table {
 	 * @return array<string, string>
 	 */
 	public function get_columns(): array {
-		return array(
+		$columns = array(
 			'cb'       => '<input type="checkbox">',
 			'key'      => __( 'License key', 'beltoft-licenses' ),
 			'product'  => __( 'Product', 'beltoft-licenses' ),
@@ -53,6 +53,30 @@ final class ListTable extends \WP_List_Table {
 			'source'   => __( 'From', 'beltoft-licenses' ),
 			'created'  => __( 'Created', 'beltoft-licenses' ),
 		);
+
+		/**
+		 * Extra columns of the license list.
+		 *
+		 * A plugin adds `name => label` (plain text, escaped here) and fills the
+		 * cells with the filter `beltoft_licenses_list_column_{name}`.
+		 *
+		 * @param array<string, string> $columns Column labels by name.
+		 */
+		$filtered = apply_filters( 'beltoft_licenses_list_columns', $columns );
+		if ( ! is_array( $filtered ) ) {
+			return $columns;
+		}
+
+		$out = array();
+		foreach ( $filtered as $name => $label ) {
+			if ( isset( $columns[ $name ] ) ) {
+				$out[ $name ] = $columns[ $name ];
+			} elseif ( is_string( $name ) && preg_match( '/^[a-z0-9_]+$/', $name ) && is_string( $label ) ) {
+				$out[ $name ] = esc_html( $label );
+			}
+		}
+
+		return $out + array_diff_key( $columns, $out );
 	}
 
 	/**
@@ -71,6 +95,14 @@ final class ListTable extends \WP_List_Table {
 				)
 			)
 		);
+
+		/**
+		 * The licenses of the page, once, so a plugin can read what its columns
+		 * need for all of them in one go instead of once per row.
+		 *
+		 * @param array<int, array<string, mixed>> $items License rows of this page.
+		 */
+		do_action( 'beltoft_licenses_list_page_rows', $items );
 
 		$this->items           = $items;
 		$this->_column_headers = array( $this->get_columns(), array(), array() );
@@ -187,7 +219,51 @@ final class ListTable extends \WP_List_Table {
 				return esc_html( get_date_from_gmt( (string) $item['created_at'], get_option( 'date_format' ) ) );
 		}
 
-		return '';
+		return self::extra_cell( (string) $column_name, $item );
+	}
+
+	/**
+	 * Cell of a column a plugin added.
+	 *
+	 * The filter `beltoft_licenses_list_column_{name}` gets an empty string and the
+	 * license row, and returns plain text or a list of entries. An entry is a text,
+	 * or `array( text, url, dimmed )` with url and dimmed optional. Everything is
+	 * escaped here.
+	 *
+	 * @param string               $name Column name.
+	 * @param array<string, mixed> $item License.
+	 */
+	public static function extra_cell( string $name, array $item ): string {
+		/**
+		 * Cell content of an added column.
+		 *
+		 * @param string|array<int, string|array<int, mixed>> $content Empty string.
+		 * @param array<string, mixed>                        $item    License row.
+		 */
+		$content = apply_filters( 'beltoft_licenses_list_column_' . $name, '', $item );
+
+		if ( is_string( $content ) ) {
+			return esc_html( $content );
+		}
+		if ( ! is_array( $content ) ) {
+			return '';
+		}
+
+		$lines = array();
+		foreach ( $content as $entry ) {
+			$entry = (array) $entry;
+			$text  = isset( $entry[0] ) && is_scalar( $entry[0] ) ? (string) $entry[0] : '';
+			if ( '' === $text ) {
+				continue;
+			}
+			$html = esc_html( $text );
+			if ( ! empty( $entry[1] ) && is_string( $entry[1] ) ) {
+				$html = sprintf( '<a href="%1$s">%2$s</a>', esc_url( $entry[1] ), $html );
+			}
+			$lines[] = empty( $entry[2] ) ? $html : '<span style="opacity:.6">' . $html . '</span>';
+		}
+
+		return implode( '<br>', $lines );
 	}
 
 	/**
