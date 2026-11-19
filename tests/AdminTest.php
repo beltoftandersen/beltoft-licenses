@@ -305,6 +305,55 @@ class AdminTest extends TestCase {
 		$this->assertSame( '1 of 1 server', ( new \ReflectionMethod( $table, 'column_default' ) )->invoke( $table, $license, 'sites' ) );
 	}
 
+	public function test_list_columns_and_cells_come_from_filters_escaped_and_batched(): void {
+		$a = $this->license();
+		$b = $this->license();
+
+		$seen = array();
+		add_action(
+			'beltoft_licenses_list_page_rows',
+			static function ( $rows ) use ( &$seen ) {
+				$seen[] = array_column( $rows, 'id' );
+			}
+		);
+		add_filter(
+			'beltoft_licenses_list_columns',
+			static function ( $cols ) {
+				$cols['service'] = 'Serv<b>ice';
+				$cols['Bad Name'] = 'x';
+				return $cols;
+			}
+		);
+		add_filter(
+			'beltoft_licenses_list_column_service',
+			static function ( $html, $row ) use ( $a ) {
+				return (int) $row['id'] === (int) $a['id']
+					? array( array( 'a<i>.example', 'https://x.example/?a=1&b=2' ), array( 'gone.example', '', true ), '' )
+					: '<script>x</script>';
+			},
+			10,
+			2
+		);
+
+		$table = new ListTable();
+		$table->prepare_items();
+		$this->assertSame( 1, count( $seen ), 'page rows primed once' );
+		$this->assertEqualsCanonicalizing( array( $a['id'], $b['id'] ), $seen[0] );
+
+		$cols = $table->get_columns();
+		$this->assertSame( 'Serv&lt;b&gt;ice', $cols['service'] );
+		$this->assertArrayNotHasKey( 'Bad Name', $cols );
+		$this->assertArrayHasKey( 'status', $cols );
+
+		$cell = new \ReflectionMethod( $table, 'column_default' );
+		$one  = (string) $cell->invoke( $table, $a, 'service' );
+		$this->assertStringContainsString( '<a href="https://x.example/?a=1&#038;b=2">a&lt;i&gt;.example</a>', $one );
+		$this->assertStringContainsString( 'opacity', $one );
+		$this->assertStringContainsString( 'gone.example', $one );
+		$this->assertSame( '&lt;script&gt;x&lt;/script&gt;', $cell->invoke( $table, $b, 'service' ) );
+		$this->assertSame( '', $cell->invoke( $table, $b, 'nothing' ) );
+	}
+
 	public function test_edit_screen_renders_sites_history_and_extension_point(): void {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$license = $this->license();
